@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.Net.Sockets;
 using System.Threading;
@@ -285,7 +285,9 @@ namespace Client.Scenes
             CheckDbBox.CloseButton.MouseClick += (o, e1) => CEnvir.Target.Close();
             CheckDbBox.Modal = true;
 
-            var datas = File.ReadAllBytes(@"./Data/System.db");
+            byte[] datas = new byte[0];
+            if (File.Exists(@"./Data/System.db"))
+                datas = File.ReadAllBytes(@"./Data/System.db");
 
 
             CEnvir.Connection.Enqueue(new C.CheckClientDb()
