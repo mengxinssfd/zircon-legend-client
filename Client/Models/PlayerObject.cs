@@ -1,4 +1,4 @@
-﻿
+
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -141,6 +141,7 @@ namespace Client.Models
             [11] = LibraryFile.M_HumEx11,
             [12] = LibraryFile.M_HumEx12,
             [13] = LibraryFile.M_HumEx13,
+            [14] = LibraryFile.M_Costume,
 
 
             [0 + FemaleOffSet] = LibraryFile.WM_Hum,
@@ -152,17 +153,20 @@ namespace Client.Models
             [11 + FemaleOffSet] = LibraryFile.WM_HumEx11,
             [12 + FemaleOffSet] = LibraryFile.WM_HumEx12,
             [13 + FemaleOffSet] = LibraryFile.WM_HumEx13,
+            [14 + FemaleOffSet] = LibraryFile.WM_Costume,
 
 
             [0 + AssassinOffSet] = LibraryFile.M_HumA,
             [1 + AssassinOffSet] = LibraryFile.M_HumAEx1,
             [2 + AssassinOffSet] = LibraryFile.M_HumAEx2,
             [3 + AssassinOffSet] = LibraryFile.M_HumAEx3,
+            [14 + AssassinOffSet] = LibraryFile.M_CostumeA,
             
             [0 + AssassinOffSet + FemaleOffSet] = LibraryFile.WM_HumA,
             [1 + AssassinOffSet + FemaleOffSet] = LibraryFile.WM_HumAEx1,
             [2 + AssassinOffSet + FemaleOffSet] = LibraryFile.WM_HumAEx2,
             [3 + AssassinOffSet + FemaleOffSet] = LibraryFile.WM_HumAEx3,
+            [14 + AssassinOffSet + FemaleOffSet] = LibraryFile.WM_CostumeA,
         };
         #endregion
 
