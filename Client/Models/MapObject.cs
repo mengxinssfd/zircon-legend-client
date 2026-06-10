@@ -307,6 +307,12 @@ namespace Client.Models
         
         public virtual void Process()
         {
+            for (int i = Effects.Count - 1; i >= 0; i--)
+            {
+                if (Effects[i].IsRemoved)
+                    Effects.RemoveAt(i);
+            }
+
             DamageInfo previous = null;
             for (int index = 0; index < DamageList.Count; index++)
             {

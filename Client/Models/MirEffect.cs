@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -32,6 +32,7 @@ namespace Client.Models
         public float BlendRate = 0.9F;
         public bool UseOffSet = true;
         public bool Loop = false;
+        public bool IsRemoved = false;
 
         public int DrawX
         {
@@ -235,6 +236,7 @@ namespace Client.Models
 
         public void Remove()
         {
+            IsRemoved = true;
             CompleteAction = null;
             FrameAction = null;
             GameScene.Game.MapControl.Effects.Remove(this);
