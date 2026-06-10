@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.Design;
 using System.Drawing;
@@ -4202,6 +4202,8 @@ namespace Client.Models
         }
         public virtual void DrawName()
         {
+            if (!Visible) return;
+
             if (NameLabel != null)
             {
                 int x = DrawX + (48 - NameLabel.Size.Width)/2;
@@ -4241,6 +4243,7 @@ namespace Client.Models
         }
         public void DrawChat()
         {
+            if (!Visible) return;
             if (ChatLabel == null || ChatLabel.IsDisposed) return;
 
             if (CEnvir.Now > ChatTime) return;
