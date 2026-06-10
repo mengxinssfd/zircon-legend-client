@@ -494,6 +494,7 @@ namespace Client.Models
                     if (Visible && Config.清理尸体)
                     {
                         Visible = false;
+                        ClearEffects();
                         break;
                     }
                     else if (!Visible && !Config.清理尸体)
@@ -4562,10 +4563,8 @@ namespace Client.Models
             DeveloperEffect = null;
         }
 
-        public virtual void Remove()
+        public void ClearEffects()
         {
-            GameScene.Game.MapControl.RemoveObject(this);
-
             MagicShieldEnd();
             CelestialLightEnd();
             WraithGripEnd();
@@ -4582,8 +4581,17 @@ namespace Client.Models
             for (int i = Effects.Count - 1; i >= 0; i--)
             {
                 MirEffect effect = Effects[i];
-                effect.Remove();
+                if (effect.Target == this && effect.Loop)
+                {
+                    effect.Remove();
+                }
             }
+        }
+
+        public virtual void Remove()
+        {
+            GameScene.Game.MapControl.RemoveObject(this);
+            ClearEffects();
         }
     }
 }

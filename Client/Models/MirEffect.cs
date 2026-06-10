@@ -211,6 +211,7 @@ namespace Client.Models
         public void Draw()
         {
             if (CEnvir.Now < StartTime || Library == null) return;
+            if (Loop && Target != null && !Target.Visible) return;
 
             //if (Blend)
             //    Library.DrawBlend(DrawFrame, DrawX, DrawY, DrawColour, UseOffSet, BlendRate, ImageType.Image);

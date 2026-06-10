@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -3606,6 +3606,7 @@ namespace Client.Models
                             break;
                         case MirAction.Dead:
                             Visible = false;
+                            ClearEffects();
                             break;
                     }
                     break;
@@ -3620,6 +3621,7 @@ namespace Client.Models
                     {
                         case MirAction.Dead:
                             Visible = false;
+                            ClearEffects();
                             break;
                     }
                     break;
