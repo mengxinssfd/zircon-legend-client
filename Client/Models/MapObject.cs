@@ -4592,6 +4592,40 @@ namespace Client.Models
         {
             GameScene.Game.MapControl.RemoveObject(this);
             ClearEffects();
+
+            // ★ Fix: 从静态缓存中解除 NameLabel 引用
+            // 不能调用 Dispose()，因为 NameLabel 走享元模式（同名怪物共享同一个 DXLabel 实例）
+            // 正确做法：从列表中移除引用，当列表为空时再移除字典条目，让 GC 自然回收
+            if (NameLabel != null)
+            {
+                if (!string.IsNullOrEmpty(Name) && NameLabels.TryGetValue(Name, out List<DXLabel> names))
+                {
+                    names.Remove(NameLabel);
+                    if (names.Count == 0)
+                        NameLabels.Remove(Name);
+                }
+                NameLabel = null;
+            }
+
+            // ★ Fix: 从静态缓存中解除 TitleNameLabel 引用
+            if (TitleNameLabel != null)
+            {
+                if (!string.IsNullOrEmpty(Title) && NameLabels.TryGetValue(Title, out List<DXLabel> titles))
+                {
+                    titles.Remove(TitleNameLabel);
+                    if (titles.Count == 0)
+                        NameLabels.Remove(Title);
+                }
+                TitleNameLabel = null;
+            }
+
+            // ★ Fix: 从全局列表中解除 ChatLabel 引用
+            // ChatLabel 不是享元模式，每次怪物发言都会创建新实例，需要在怪物移除时清理
+            if (ChatLabel != null)
+            {
+                ChatLabels.Remove(ChatLabel);
+                ChatLabel = null;
+            }
         }
     }
 }
