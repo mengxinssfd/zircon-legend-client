@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -258,6 +258,13 @@ namespace Client.Scenes.Views
             int y = (minY + maxY) / 2;
 
 
+            // ★ Fix: 覆盖字典条目前先 Dispose 旧控件，防止地图重加载时旧 DXImageControl 积压
+            if (MapInfoObjects.TryGetValue(ob, out DXControl existing))
+            {
+                existing.Dispose();
+                MapInfoObjects.Remove(ob);
+            }
+
             DXImageControl control;
             MapInfoObjects[ob] = control = new DXImageControl
             {
@@ -387,14 +394,23 @@ namespace Client.Scenes.Views
                     // 当前人物：6x6 magenta外框，内部2x2 cyan点，外框宽度2
                     size = new Size(6, 6);
                     
-                    new DXControl
+                    // ★ Fix: 与Boss的处理方式保持一致，只在没有子控件时才创建
+                    // 原来无条件 new DXControl，每次 Update() 都创建一个新的子控件
+                    // 而每个子控件的 DrawTexture=true 会触发 CreateTexture() 分配 D3D Surface
+                    // 导致 2.5小时挂机后累积 ~5741 个泄漏子控件和 Surface，直接填满 VRAM
+                    if (control.Controls.Count == 0)
                     {
-                        Parent = control,
-                        Location = new Point(2, 2),
-                        BackColour = Color.Cyan,
-                        DrawTexture = true,
-                        Size = new Size(2, 2)
-                    };
+                        new DXControl
+                        {
+                            Parent = control,
+                            Location = new Point(2, 2),
+                            BackColour = Color.Cyan,
+                            DrawTexture = true,
+                            Size = new Size(2, 2)
+                        };
+                    }
+                    else
+                        control.Controls[0].BackColour = Color.Cyan;
 
                     colour = Color.Magenta;
                 }
