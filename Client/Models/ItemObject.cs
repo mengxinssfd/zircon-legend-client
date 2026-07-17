@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -276,7 +276,7 @@ namespace Client.Models
                         IsVisible = true,
                     };
 
-                    TitleNameLabel.Disposing += (o, e) => titles.Remove(TitleNameLabel);
+                    // ★ Fix: 不订阅 Disposing 事件（同 MapObject 修复，防止闭包捕获 this 导致 ItemObject 无法被 GC）
                     titles.Add(TitleNameLabel);
                 }
             }
@@ -306,7 +306,7 @@ namespace Client.Models
                     IsVisible = true,
                 };
 
-                FocusLabel.Disposing += (o, e) => focused.Remove(FocusLabel);
+                // ★ Fix: 不订阅 Disposing 事件（同 MapObject 修复）
                 focused.Add(FocusLabel);
             }
         }
@@ -319,12 +319,27 @@ namespace Client.Models
 
         public override void Remove()
         {
+            // ★ Fix: 在 base.Remove() 之前清理 FocusLabel
+            // FocusLabel 由 ItemObject.NameChanged() 放入 NameLabels[Name] 列表，
+            // base.Remove() 只清理 NameLabel，FocusLabel 需要在这里单独处理，
+            // 否则列表不会清空，NameLabels 字典条目永久积压。
+            if (FocusLabel != null)
+            {
+                if (!string.IsNullOrEmpty(Name) && NameLabels.TryGetValue(Name, out List<DXLabel> focused))
+                {
+                    focused.Remove(FocusLabel);
+                    if (focused.Count == 0)
+                        NameLabels.Remove(Name);
+                }
+                FocusLabel = null;
+            }
+
             if (FilterSet != null)
             {
                 FilterSet.ShowChanged -= OnNameShowChanged;
                 FilterSet = null;
             }
-            
+
             base.Remove();
         }
     }
