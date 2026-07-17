@@ -4130,7 +4130,11 @@ namespace Client.Models
                 DrawFormat = TextFormatFlags.WordBreak | TextFormatFlags.WordEllipsis ,
             };
             ChatLabel.Size = DXLabel.GetHeight(ChatLabel, chatWidth);
-            ChatLabel.Disposing += (o, e) => ChatLabels.Remove(ChatLabel);
+            // ★ Fix: 不订阅 Disposing 事件
+            // 原订阅会创建捕获 this (MapObject) 的 lambda 闭包，
+            // 而 static ChatLabels 持有 DXLabel，DXLabel 持有闭包，闭包持有 this，
+            // 导致 MonsterObject 被静态字典间接持有无法被 GC 回收。
+            // Remove() 方法已负责从 ChatLabels 中清理引用，此处订阅纯属多余且有害。
             ChatLabels.Add(ChatLabel);
 
         }
@@ -4160,7 +4164,7 @@ namespace Client.Models
                         IsVisible = true,
                     };
 
-                    NameLabel.Disposing += (o, e) => names.Remove(NameLabel);
+                    // ★ Fix: 不订阅 Disposing 事件（同上，防止闭包持有 this 导致 MonsterObject 泄漏）
                     names.Add(NameLabel);
                 }
             }
@@ -4202,7 +4206,7 @@ namespace Client.Models
                         IsVisible = true,
                     };
 
-                    TitleNameLabel.Disposing += (o, e) => titles.Remove(TitleNameLabel);
+                    // ★ Fix: 不订阅 Disposing 事件（同上）
                     titles.Add(TitleNameLabel);
                 }
             }
