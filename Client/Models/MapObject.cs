@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.Design;
 using System.Drawing;
@@ -307,6 +307,12 @@ namespace Client.Models
         
         public virtual void Process()
         {
+            for (int i = Effects.Count - 1; i >= 0; i--)
+            {
+                if (Effects[i].IsRemoved)
+                    Effects.RemoveAt(i);
+            }
+
             DamageInfo previous = null;
             for (int index = 0; index < DamageList.Count; index++)
             {
@@ -488,6 +494,7 @@ namespace Client.Models
                     if (Visible && Config.清理尸体)
                     {
                         Visible = false;
+                        ClearEffects();
                         break;
                     }
                     else if (!Visible && !Config.清理尸体)
@@ -4123,7 +4130,11 @@ namespace Client.Models
                 DrawFormat = TextFormatFlags.WordBreak | TextFormatFlags.WordEllipsis ,
             };
             ChatLabel.Size = DXLabel.GetHeight(ChatLabel, chatWidth);
-            ChatLabel.Disposing += (o, e) => ChatLabels.Remove(ChatLabel);
+            // ★ Fix: 不订阅 Disposing 事件
+            // 原订阅会创建捕获 this (MapObject) 的 lambda 闭包，
+            // 而 static ChatLabels 持有 DXLabel，DXLabel 持有闭包，闭包持有 this，
+            // 导致 MonsterObject 被静态字典间接持有无法被 GC 回收。
+            // Remove() 方法已负责从 ChatLabels 中清理引用，此处订阅纯属多余且有害。
             ChatLabels.Add(ChatLabel);
 
         }
@@ -4153,7 +4164,7 @@ namespace Client.Models
                         IsVisible = true,
                     };
 
-                    NameLabel.Disposing += (o, e) => names.Remove(NameLabel);
+                    // ★ Fix: 不订阅 Disposing 事件（同上，防止闭包持有 this 导致 MonsterObject 泄漏）
                     names.Add(NameLabel);
                 }
             }
@@ -4195,13 +4206,15 @@ namespace Client.Models
                         IsVisible = true,
                     };
 
-                    TitleNameLabel.Disposing += (o, e) => titles.Remove(TitleNameLabel);
+                    // ★ Fix: 不订阅 Disposing 事件（同上）
                     titles.Add(TitleNameLabel);
                 }
             }
         }
         public virtual void DrawName()
         {
+            if (!Visible) return;
+
             if (NameLabel != null)
             {
                 int x = DrawX + (48 - NameLabel.Size.Width)/2;
@@ -4241,6 +4254,7 @@ namespace Client.Models
         }
         public void DrawChat()
         {
+            if (!Visible) return;
             if (ChatLabel == null || ChatLabel.IsDisposed) return;
 
             if (CEnvir.Now > ChatTime) return;
@@ -4553,10 +4567,8 @@ namespace Client.Models
             DeveloperEffect = null;
         }
 
-        public virtual void Remove()
+        public void ClearEffects()
         {
-            GameScene.Game.MapControl.RemoveObject(this);
-
             MagicShieldEnd();
             CelestialLightEnd();
             WraithGripEnd();
@@ -4573,7 +4585,50 @@ namespace Client.Models
             for (int i = Effects.Count - 1; i >= 0; i--)
             {
                 MirEffect effect = Effects[i];
-                effect.Remove();
+                if (effect.Target == this && effect.Loop)
+                {
+                    effect.Remove();
+                }
+            }
+        }
+
+        public virtual void Remove()
+        {
+            GameScene.Game.MapControl.RemoveObject(this);
+            ClearEffects();
+
+            // ★ Fix: 从静态缓存中解除 NameLabel 引用
+            // 不能调用 Dispose()，因为 NameLabel 走享元模式（同名怪物共享同一个 DXLabel 实例）
+            // 正确做法：从列表中移除引用，当列表为空时再移除字典条目，让 GC 自然回收
+            if (NameLabel != null)
+            {
+                if (!string.IsNullOrEmpty(Name) && NameLabels.TryGetValue(Name, out List<DXLabel> names))
+                {
+                    names.Remove(NameLabel);
+                    if (names.Count == 0)
+                        NameLabels.Remove(Name);
+                }
+                NameLabel = null;
+            }
+
+            // ★ Fix: 从静态缓存中解除 TitleNameLabel 引用
+            if (TitleNameLabel != null)
+            {
+                if (!string.IsNullOrEmpty(Title) && NameLabels.TryGetValue(Title, out List<DXLabel> titles))
+                {
+                    titles.Remove(TitleNameLabel);
+                    if (titles.Count == 0)
+                        NameLabels.Remove(Title);
+                }
+                TitleNameLabel = null;
+            }
+
+            // ★ Fix: 从全局列表中解除 ChatLabel 引用
+            // ChatLabel 不是享元模式，每次怪物发言都会创建新实例，需要在怪物移除时清理
+            if (ChatLabel != null)
+            {
+                ChatLabels.Remove(ChatLabel);
+                ChatLabel = null;
             }
         }
     }
