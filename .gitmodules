@@ -1,5 +1,7 @@
 [submodule "Library"]
 	path = Library
-	url = https://gitee.com/raphaelcheung/zircon-legend-library.git
+    # 改地址后要同步git submodule sync，然后git submodule update --recursive
+    url = git@github.com:mengxinssfd/zircon-legend-library.git
+	# url = https://gitee.com/raphaelcheung/zircon-legend-library.git
 	# url = https://gitee.com/zhouyi311/zircon-legend-library.git
 	branch = main
