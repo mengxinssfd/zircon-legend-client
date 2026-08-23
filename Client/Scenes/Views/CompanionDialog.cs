@@ -13,10 +13,14 @@ namespace Client.Scenes.Views
 {
     public sealed class CompanionDialog : DXWindow
     {
+        private const int InventoryColumns = 10;
+        private const int InventoryVisibleRows = 4;
+
         #region Properties
 
         public DXItemCell[] EquipmentGrid;
         public DXItemGrid InventoryGrid;
+        public DXVScrollBar InventoryScrollBar;
 
         public MonsterObject CompanionDisplay;
         public Point CompanionDisplayPoint;
@@ -36,17 +40,33 @@ namespace Client.Scenes.Views
         public CompanionDialog()
         {
             TitleLabel.Text = "伙伴";
-            SetClientSize(new Size(352, 341));
+            SetClientSize(new Size(368, 341));
 
             CompanionDisplayPoint = new Point(ClientArea.X + 60, ClientArea.Y + 50);
 
             InventoryGrid = new DXItemGrid
             {
-                GridSize = new Size(10, 4),
+                GridSize = new Size(InventoryColumns, InventoryVisibleRows),
+                VisibleHeight = InventoryVisibleRows,
                 Parent = this,
                 GridType = GridType.CompanionInventory,
                 Location = new Point(ClientArea.X, ClientArea.Y + 200),
             };
+
+            InventoryScrollBar = new DXVScrollBar
+            {
+                Parent = this,
+                Size = new Size(14, InventoryGrid.Size.Height),
+                Location = new Point(InventoryGrid.Location.X + InventoryGrid.Size.Width + 2, InventoryGrid.Location.Y),
+                VisibleSize = InventoryVisibleRows,
+                MaxValue = InventoryVisibleRows,
+                Change = 1,
+                Visible = false,
+            };
+            InventoryScrollBar.ValueChanged += (o, e) => InventoryGrid.ScrollValue = InventoryScrollBar.Value;
+            InventoryGrid.GridSizeChanged += InventoryGrid_GridSizeChanged;
+            InventoryGrid.MouseWheel += InventoryScrollBar.DoMouseWheel;
+            BindInventoryMouseWheel();
 
             EquipmentGrid = new DXItemCell[Globals.CompanionEquipmentSize];
             DXItemCell cell;
@@ -395,6 +415,40 @@ namespace Client.Scenes.Views
         }
 
         #region Methods
+        private void InventoryGrid_GridSizeChanged(object sender, System.EventArgs e)
+        {
+            BindInventoryMouseWheel();
+        }
+
+        private void BindInventoryMouseWheel()
+        {
+            foreach (DXItemCell cell in InventoryGrid.Grid)
+                cell.MouseWheel += InventoryScrollBar.DoMouseWheel;
+        }
+
+        private void UpdateInventoryGrid()
+        {
+            ClientUserCompanion companion = GameScene.Game.Companion;
+            if (companion == null) return;
+
+            int occupiedSlots = System.Array.FindLastIndex(companion.InventoryArray, item => item != null) + 1;
+            int requiredSlots = System.Math.Max(Globals.CompanionInventorySize, System.Math.Max(InventorySize, occupiedSlots));
+            int rowCount = System.Math.Max(InventoryVisibleRows, (requiredSlots + InventoryColumns - 1) / InventoryColumns);
+            int arraySize = rowCount * InventoryColumns;
+
+            if (companion.InventoryArray.Length < arraySize)
+                System.Array.Resize(ref companion.InventoryArray, arraySize);
+
+            InventoryGrid.ItemGrid = companion.InventoryArray;
+            InventoryGrid.GridSize = new Size(InventoryColumns, rowCount);
+
+            InventoryScrollBar.MaxValue = rowCount;
+            InventoryScrollBar.Visible = rowCount > InventoryVisibleRows;
+
+            if (!InventoryScrollBar.Visible)
+                InventoryScrollBar.Value = 0;
+        }
+
         public void CompanionChanged()
         {
             if (GameScene.Game.Companion == null)
@@ -403,7 +457,7 @@ namespace Client.Scenes.Views
                 return;
             }
 
-            InventoryGrid.ItemGrid = GameScene.Game.Companion.InventoryArray;
+            UpdateInventoryGrid();
 
             foreach (DXItemCell cell in EquipmentGrid)
                 cell.ItemGrid = GameScene.Game.Companion.EquipmentArray;
@@ -458,6 +512,8 @@ namespace Client.Scenes.Views
 
         public void Refresh()
         {
+            UpdateInventoryGrid();
+
             LevelLabel.Text = GameScene.Game.Companion.Level.ToString();
 
             CompanionLevelInfo info = Globals.CompanionLevelInfoList.Binding.First(x => x.Level == GameScene.Game.Companion.Level);
@@ -522,6 +578,14 @@ namespace Client.Scenes.Views
                         InventoryGrid.Dispose();
 
                     InventoryGrid = null;
+                }
+
+                if (InventoryScrollBar != null)
+                {
+                    if (!InventoryScrollBar.IsDisposed)
+                        InventoryScrollBar.Dispose();
+
+                    InventoryScrollBar = null;
                 }
 
                 if (WeightLabel != null)
