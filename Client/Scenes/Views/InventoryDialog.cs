@@ -13,6 +13,9 @@ namespace Client.Scenes.Views
 {
     public sealed class InventoryDialog : DXWindow
     {
+        private const int InventoryColumns = 7;
+        private const int InventoryVisibleRows = 7;
+
         #region Properties
 
         public DXItemGrid Grid;
@@ -70,12 +73,13 @@ namespace Client.Scenes.Views
                 Parent = dxTab1,
             };
 
-            DXVScrollBar GridScrollBar = new DXVScrollBar()
+            GridScrollBar = new DXVScrollBar()
             {
                 Parent = GridTab,
                 Size = new Size(16, 248),
                 Location = new Point(ClientArea.Right - 30, 5),
-                VisibleSize = 7,
+                VisibleSize = InventoryVisibleRows,
+                MaxValue = (Globals.InventorySize + InventoryColumns - 1) / InventoryColumns,
                 Change = 1,
             };
 
@@ -105,12 +109,17 @@ namespace Client.Scenes.Views
             //};
 
             DXItemGrid dxItemGrid1 = new DXItemGrid();
-            dxItemGrid1.GridSize = new Size(7, 7);
+            dxItemGrid1.GridSize = new Size(InventoryColumns, (Globals.InventorySize + InventoryColumns - 1) / InventoryColumns);
+            dxItemGrid1.VisibleHeight = InventoryVisibleRows;
             dxItemGrid1.Parent = GridTab;
             dxItemGrid1.Location = new Point(5, 5);
             dxItemGrid1.ItemGrid = GameScene.Game.Inventory;
             dxItemGrid1.GridType = GridType.Inventory;
             Grid = dxItemGrid1;
+            GridScrollBar.ValueChanged += GridScrollBar_ValueChanged;
+            Grid.MouseWheel += GridScrollBar.DoMouseWheel;
+            foreach (DXControl control in Grid.Grid)
+                control.MouseWheel += GridScrollBar.DoMouseWheel;
 
             //DXItemGrid dxItemGrid2 = new DXItemGrid();
             //dxItemGrid2.GridSize = new Size(7, 7);
@@ -367,6 +376,11 @@ namespace Client.Scenes.Views
         }
 
         #region Methods
+        private void GridScrollBar_ValueChanged(object sender, EventArgs e)
+        {
+            Grid.ScrollValue = GridScrollBar.Value;
+        }
+
         private void GoldLabel_MouseClick(object sender, MouseEventArgs e)
         {
             if (GameScene.Game.SelectedCell == null)
@@ -477,6 +491,14 @@ namespace Client.Scenes.Views
                         Grid.Dispose();
 
                     Grid = null;
+                }
+
+                if (GridScrollBar != null)
+                {
+                    if (!GridScrollBar.IsDisposed)
+                        GridScrollBar.Dispose();
+
+                    GridScrollBar = null;
                 }
 
                 if (GoldLabel != null)
