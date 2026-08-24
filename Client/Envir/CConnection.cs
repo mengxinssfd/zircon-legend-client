@@ -1909,7 +1909,7 @@ namespace Client.Envir
             if (!p.Success) return;
 
 
-            if (!fromCell.Item.Info.ShouldLinkInfo)
+            if (fromCell.Item != null && !fromCell.Item.Info.ShouldLinkInfo)
             {
                 for (int i = 0; i < GameScene.Game.BeltBox.Links.Length; i++)
                 {
@@ -4392,6 +4392,11 @@ namespace Client.Envir
         public void Process(S.SortBagItem p)
         {
             GameScene.Game.SortFillItems(p.Items);
+        }
+
+        public void Process(S.SortCompanionItem p)
+        {
+            GameScene.Game.CompanionBox.SortItems(p.Items);
         }
 
         public void Process(Qiehuanxunzhaoguaiwumoshi p)

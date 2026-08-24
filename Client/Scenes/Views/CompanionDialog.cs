@@ -21,6 +21,7 @@ namespace Client.Scenes.Views
         public DXItemCell[] EquipmentGrid;
         public DXItemGrid InventoryGrid;
         public DXVScrollBar InventoryScrollBar;
+        public DXButton SortButton;
 
         public MonsterObject CompanionDisplay;
         public Point CompanionDisplayPoint;
@@ -29,6 +30,7 @@ namespace Client.Scenes.Views
         public DXComboBox ModeComboBox;
 
         public int BagWeight, MaxBagWeight, InventorySize;
+        private System.DateTime SortTime = System.DateTime.MinValue;
 
 
         public override WindowType Type => WindowType.CompanionBox;
@@ -40,7 +42,7 @@ namespace Client.Scenes.Views
         public CompanionDialog()
         {
             TitleLabel.Text = "伙伴";
-            SetClientSize(new Size(368, 341));
+            SetClientSize(new Size(368, 365));
 
             CompanionDisplayPoint = new Point(ClientArea.X + 60, ClientArea.Y + 50);
 
@@ -50,7 +52,7 @@ namespace Client.Scenes.Views
                 VisibleHeight = InventoryVisibleRows,
                 Parent = this,
                 GridType = GridType.CompanionInventory,
-                Location = new Point(ClientArea.X, ClientArea.Y + 200),
+                Location = new Point(ClientArea.X, ClientArea.Y + 224),
             };
 
             InventoryScrollBar = new DXVScrollBar
@@ -67,6 +69,17 @@ namespace Client.Scenes.Views
             InventoryGrid.GridSizeChanged += InventoryGrid_GridSizeChanged;
             InventoryGrid.MouseWheel += InventoryScrollBar.DoMouseWheel;
             BindInventoryMouseWheel();
+
+            SortButton = new DXButton
+            {
+                LibraryFile = LibraryFile.GameInter,
+                Index = 364,
+                Parent = this,
+                Hint = "整理背包",
+                Location = new Point(ClientArea.Right - 42, InventoryGrid.Location.Y - 35),
+                Enabled = false,
+            };
+            SortButton.MouseClick += SortButton_MouseClick;
 
             EquipmentGrid = new DXItemCell[Globals.CompanionEquipmentSize];
             DXItemCell cell;
@@ -449,10 +462,59 @@ namespace Client.Scenes.Views
                 InventoryScrollBar.Value = 0;
         }
 
+        private void SortButton_MouseClick(object sender, MouseEventArgs e)
+        {
+            if (GameScene.Game.Observer ||
+                GameScene.Game.Companion == null ||
+                GameScene.Game.SelectedCell != null ||
+                InventoryGrid.Grid.Any(cell => cell.Locked) ||
+                CEnvir.Now < SortTime)
+                return;
+
+            SortTime = CEnvir.Now.AddSeconds(10);
+            UpdateSortButton();
+            CEnvir.Enqueue(new Library.Network.ClientPackets.SortCompanionItem());
+        }
+
+        private void UpdateSortButton()
+        {
+            bool enabled = GameScene.Game.Companion != null && CEnvir.Now >= SortTime;
+
+            SortButton.Enabled = enabled;
+            SortButton.Index = enabled ? 364 : 365;
+            SortButton.Hint = enabled ? "整理背包" : "暂时无法整理";
+        }
+
+        public void SortItems(System.Collections.Generic.List<ClientUserItem> items)
+        {
+            ClientUserCompanion companion = GameScene.Game.Companion;
+            if (companion == null) return;
+
+            int requiredSize = items.Count == 0 ? 0 : items.Max(item => item.Slot) + 1;
+            if (companion.InventoryArray.Length < requiredSize)
+                System.Array.Resize(ref companion.InventoryArray, requiredSize);
+
+            System.Array.Clear(companion.InventoryArray, 0, companion.InventoryArray.Length);
+
+            foreach (ClientUserItem item in items)
+            {
+                if (item.Slot < 0 || item.Slot >= companion.InventoryArray.Length) continue;
+
+                companion.InventoryArray[item.Slot] = item;
+            }
+
+            UpdateInventoryGrid();
+            foreach (DXItemCell cell in InventoryGrid.Grid)
+                cell.RefreshItem();
+
+            InventoryScrollBar.Value = 0;
+        }
+
         public void CompanionChanged()
         {
             if (GameScene.Game.Companion == null)
             {
+                UpdateSortButton();
                 Visible = false;
                 return;
             }
@@ -466,6 +528,7 @@ namespace Client.Scenes.Views
             NameLabel.Text = GameScene.Game.Companion.Name;
 
             Refresh();
+            UpdateSortButton();
 
         }
 
@@ -487,6 +550,7 @@ namespace Client.Scenes.Views
             base.Process();
 
             CompanionDisplay?.Process();
+            UpdateSortButton();
         }
 
         protected override void OnAfterDraw()
@@ -586,6 +650,14 @@ namespace Client.Scenes.Views
                         InventoryScrollBar.Dispose();
 
                     InventoryScrollBar = null;
+                }
+
+                if (SortButton != null)
+                {
+                    if (!SortButton.IsDisposed)
+                        SortButton.Dispose();
+
+                    SortButton = null;
                 }
 
                 if (WeightLabel != null)
