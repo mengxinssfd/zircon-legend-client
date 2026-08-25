@@ -30,10 +30,8 @@ namespace Client.Scenes.Views
         public DXPlayerHelperTab Helper;
         public DXProtectionTab Protect;
         public DXAnsweringTab Answering;
-        public DXUserNoteBookTab NoteBook;
-        public DXSystemMsgRecordTab MsgRecord;
+        public DXAutoOilTab AutoOil;
         public DXAutoPickItemTab AutoPick;
-        public DXViewRangeObjectTab ViewRange;
         public DXMagicHelperTab Magic { get; set; }
         public DateTime _ProtectTime;
 
@@ -121,18 +119,12 @@ namespace Client.Scenes.Views
             dxAnsweringTab.TabButton.Label.Text = "聊天";
             dxAnsweringTab.TabButton.Label.Hint = "自动回复以及自动喊话";
             Answering = dxAnsweringTab;
-            DXUserNoteBookTab dxUserNoteBookTab = new DXUserNoteBookTab();
-            dxUserNoteBookTab.Parent = TabControl;
-            dxUserNoteBookTab.Border = true;
-            dxUserNoteBookTab.TabButton.Label.Text = "便签";
-            dxUserNoteBookTab.TabButton.Label.Hint = "方便用户记录一些文本";
-            NoteBook = dxUserNoteBookTab;
-            DXSystemMsgRecordTab systemMsgRecordTab = new DXSystemMsgRecordTab();
-            systemMsgRecordTab.Parent = TabControl;
-            systemMsgRecordTab.Border = true;
-            systemMsgRecordTab.TabButton.Label.Text = "记录";
-            systemMsgRecordTab.TabButton.Label.Hint = "系统消息记录";
-            MsgRecord = systemMsgRecordTab;
+            DXAutoOilTab dxAutoOilTab = new DXAutoOilTab();
+            dxAutoOilTab.Parent = TabControl;
+            dxAutoOilTab.Border = true;
+            dxAutoOilTab.TabButton.Label.Text = "喝油";
+            dxAutoOilTab.TabButton.Label.Hint = "自动使用祝福油或修复油";
+            AutoOil = dxAutoOilTab;
             DXAutoPickItemTab dxAutoPickItemTab = new DXAutoPickItemTab();
             dxAutoPickItemTab.Parent = TabControl;
             dxAutoPickItemTab.Border = true;
@@ -145,12 +137,6 @@ namespace Client.Scenes.Views
             dxMagicHelperTab.TabButton.Label.Text = "魔法";
             dxMagicHelperTab.TabButton.Label.Hint = "内容会自动刷新";
             Magic = dxMagicHelperTab;
-            DXViewRangeObjectTab viewRangeObjectTab = new DXViewRangeObjectTab();
-            viewRangeObjectTab.Parent = TabControl;
-            viewRangeObjectTab.Border = true;
-            viewRangeObjectTab.TabButton.Label.Text = "帮助";
-            viewRangeObjectTab.TabButton.Label.Hint = "关于辅助的解释说明";
-            ViewRange = viewRangeObjectTab;
         }
 
         public void UpdateLinks(StartInformation info)
@@ -793,6 +779,8 @@ namespace Client.Scenes.Views
 
         public void UpdateAutoAssist()
         {
+            AutoOil?.UpdateAutomation();
+
             CastFourFlowers();
 
             if (Config.在安全处有效)
@@ -1039,10 +1027,8 @@ namespace Client.Scenes.Views
             Helper?.Dispose();
             Protect?.Dispose();
             Answering?.Dispose();
-            NoteBook?.Dispose();
-            MsgRecord?.Dispose();
+            AutoOil?.Dispose();
             AutoPick?.Dispose();
-            ViewRange?.Dispose();
             Magic?.Dispose();
         }
 
@@ -3705,6 +3691,393 @@ namespace Client.Scenes.Views
                 noteView.Size = size2;
                 NoteView.Location = new Point(10, 10);
                 NoteView.Visible = true;
+            }
+        }
+
+        public class DXAutoOilTab : DXTab
+        {
+            public DXAutoOilPanel BlessingOilPanel;
+            public DXAutoOilPanel RepairOilPanel;
+
+            public DXAutoOilTab()
+            {
+                BlessingOilPanel = new DXAutoOilPanel("自动喝祝福油", "祝福油", "幸运", Stat.Luck)
+                {
+                    Parent = this,
+                    Location = new Point(10, 10),
+                    Size = new Size(255, 380),
+                };
+
+                RepairOilPanel = new DXAutoOilPanel("自动喝修复油", "修复油", "力量", Stat.Strength)
+                {
+                    Parent = this,
+                    Location = new Point(275, 10),
+                    Size = new Size(255, 380),
+                };
+
+                BlessingOilPanel.Starting += (o, e) => RepairOilPanel.Stop(false);
+                RepairOilPanel.Starting += (o, e) => BlessingOilPanel.Stop(false);
+            }
+
+            public void UpdateAutomation()
+            {
+                BlessingOilPanel?.UpdateAutomation();
+                RepairOilPanel?.UpdateAutomation();
+            }
+
+            protected override void Dispose(bool disposing)
+            {
+                base.Dispose(disposing);
+
+                if (!disposing) return;
+
+                BlessingOilPanel?.Dispose();
+                BlessingOilPanel = null;
+
+                RepairOilPanel?.Dispose();
+                RepairOilPanel = null;
+            }
+        }
+
+        public class DXAutoOilPanel : DXGroupBox
+        {
+            private static readonly int[] Milestones = { 5, 7, 8, 9 };
+
+            private readonly string _oilName;
+            private readonly string _statName;
+            private readonly Stat _stat;
+            private readonly Dictionary<int, int> _milestoneCounts = new Dictionary<int, int>();
+
+            private DXNumberBox _targetBox;
+            private DXButton _toggleButton;
+            private DXButton _resetButton;
+            private DXLabel _currentValueLabel;
+            private DXLabel _remainingOilLabel;
+            private DXLabel _consumedOilLabel;
+            private readonly Dictionary<int, DXLabel> _milestoneLabels = new Dictionary<int, DXLabel>();
+
+            private bool _running;
+            private long _consumedOil;
+            private int _lastObservedValue;
+            private DXItemCell _pendingCell;
+            private ClientUserItem _pendingItem;
+            private long _pendingItemCount;
+
+            public event EventHandler<EventArgs> Starting;
+
+            public DXAutoOilPanel(string title, string oilName, string statName, Stat stat)
+            {
+                Name.Text = title;
+                _oilName = oilName;
+                _statName = statName;
+                _stat = stat;
+
+                foreach (int milestone in Milestones)
+                    _milestoneCounts[milestone] = 0;
+
+                DXLabel targetLabel = new DXLabel
+                {
+                    Parent = this,
+                    Location = new Point(20, 42),
+                    Text = $"目标{_statName}值:",
+                };
+
+                _targetBox = new DXNumberBox
+                {
+                    Parent = this,
+                    Location = new Point(112, 40),
+                    Size = new Size(90, 20),
+                    MinValue = 1,
+                    MaxValue = 9,
+                    Change = 1,
+                    Value = 7,
+                };
+
+                _currentValueLabel = new DXLabel
+                {
+                    Parent = this,
+                    Location = new Point(20, 80),
+                };
+
+                _remainingOilLabel = new DXLabel
+                {
+                    Parent = this,
+                    Location = new Point(20, 108),
+                };
+
+                _toggleButton = new DXButton
+                {
+                    Parent = this,
+                    Location = new Point(20, 145),
+                    Size = new Size(70, 18),
+                    ButtonType = ButtonType.SmallButton,
+                };
+                _toggleButton.Label.Text = "开始";
+                _toggleButton.MouseClick += (o, e) =>
+                {
+                    if (_running)
+                        Stop(false);
+                    else
+                        Start();
+                };
+
+                _resetButton = new DXButton
+                {
+                    Parent = this,
+                    Location = new Point(115, 145),
+                    Size = new Size(70, 18),
+                    ButtonType = ButtonType.SmallButton,
+                };
+                _resetButton.Label.Text = "清零";
+                _resetButton.MouseClick += (o, e) => ResetStatistics();
+
+                _consumedOilLabel = new DXLabel
+                {
+                    Parent = this,
+                    Location = new Point(20, 190),
+                };
+
+                int y = 222;
+                foreach (int milestone in Milestones)
+                {
+                    DXLabel label = new DXLabel
+                    {
+                        Parent = this,
+                        Location = new Point(20, y),
+                    };
+
+                    _milestoneLabels[milestone] = label;
+                    y += 28;
+                }
+
+                RefreshDisplay();
+            }
+
+            public void UpdateAutomation()
+            {
+                RefreshDisplay();
+
+                if (!_running || GameScene.Game?.User == null || GameScene.Game.Observer)
+                    return;
+
+                ClientUserItem weapon = GetWeapon();
+                if (weapon == null)
+                {
+                    StopWithMessage($"自动喝{_oilName}已停止：当前未装备武器。");
+                    return;
+                }
+
+                int currentValue = GetWeaponStat(weapon);
+                RecordMilestone(_lastObservedValue, currentValue);
+                _lastObservedValue = currentValue;
+
+                if (_pendingCell != null)
+                {
+                    if (_pendingCell.Locked)
+                        return;
+
+                    if ((_pendingCell.Item == null && _pendingItemCount == 1) ||
+                        ReferenceEquals(_pendingCell.Item, _pendingItem) && _pendingItem.Count < _pendingItemCount)
+                        _consumedOil++;
+
+                    _pendingCell = null;
+                    _pendingItem = null;
+                    _pendingItemCount = 0;
+                    RefreshDisplay();
+                }
+
+                if (currentValue >= _targetBox.Value)
+                {
+                    StopWithMessage($"自动喝{_oilName}已完成：武器{_statName}值已达到 +{currentValue}。");
+                    return;
+                }
+
+                DXItemCell oilCell = FindOilCell();
+                if (oilCell == null)
+                {
+                    StopWithMessage($"自动喝{_oilName}已停止：{_oilName}已用完。");
+                    return;
+                }
+
+                if (CEnvir.Now < GameScene.Game.UseItemTime || MapObject.User.Horse != HorseType.None)
+                    return;
+
+                _pendingItem = oilCell.Item;
+                _pendingItemCount = oilCell.Item.Count;
+                if (!oilCell.UseItem())
+                {
+                    _pendingItem = null;
+                    _pendingItemCount = 0;
+                    return;
+                }
+
+                _pendingCell = oilCell;
+            }
+
+            public void Stop(bool notify)
+            {
+                if (!_running) return;
+
+                _running = false;
+                _pendingCell = null;
+                _pendingItem = null;
+                _pendingItemCount = 0;
+                _targetBox.Enabled = true;
+                _toggleButton.Label.Text = "开始";
+
+                if (notify)
+                    GameScene.Game?.ReceiveChat($"自动喝{_oilName}已停止。", MessageType.Hint);
+            }
+
+            private void Start()
+            {
+                if (GameScene.Game?.User == null || GameScene.Game.Observer)
+                    return;
+
+                ClientUserItem weapon = GetWeapon();
+                if (weapon == null)
+                {
+                    GameScene.Game.ReceiveChat($"无法自动喝{_oilName}：当前未装备武器。", MessageType.Hint);
+                    return;
+                }
+
+                int currentValue = GetWeaponStat(weapon);
+                if (currentValue >= _targetBox.Value)
+                {
+                    GameScene.Game.ReceiveChat($"无需自动喝{_oilName}：武器{_statName}值已达到 +{currentValue}。", MessageType.Hint);
+                    return;
+                }
+
+                if (FindOilCell() == null)
+                {
+                    GameScene.Game.ReceiveChat($"无法自动喝{_oilName}：背包中没有{_oilName}。", MessageType.Hint);
+                    return;
+                }
+
+                Starting?.Invoke(this, EventArgs.Empty);
+                ResetStatistics();
+
+                _running = true;
+                _pendingCell = null;
+                _pendingItem = null;
+                _pendingItemCount = 0;
+                _lastObservedValue = currentValue;
+                _targetBox.Enabled = false;
+                _toggleButton.Label.Text = "停止";
+                RefreshDisplay();
+            }
+
+            private void StopWithMessage(string message)
+            {
+                Stop(false);
+                GameScene.Game?.ReceiveChat(message, MessageType.Hint);
+            }
+
+            private void ResetStatistics()
+            {
+                _consumedOil = 0;
+
+                foreach (int milestone in Milestones)
+                    _milestoneCounts[milestone] = 0;
+
+                RefreshDisplay();
+            }
+
+            private void RecordMilestone(int oldValue, int newValue)
+            {
+                if (newValue <= oldValue || !_milestoneCounts.ContainsKey(newValue))
+                    return;
+
+                _milestoneCounts[newValue]++;
+            }
+
+            private ClientUserItem GetWeapon()
+            {
+                DXItemCell[] equipment = GameScene.Game?.CharacterBox?.Grid;
+                if (equipment == null)
+                    return null;
+
+                return equipment[(int)EquipmentSlot.Weapon]?.Item;
+            }
+
+            private int GetWeaponStat(ClientUserItem weapon)
+            {
+                if (weapon == null)
+                    return 0;
+
+                return weapon.Info.Stats[_stat] + weapon.AddedStats[_stat];
+            }
+
+            private DXItemCell FindOilCell()
+            {
+                DXItemCell[] inventory = GameScene.Game?.InventoryBox?.Grid?.Grid;
+                DXItemCell cell = FindOilCell(inventory);
+                if (cell != null)
+                    return cell;
+
+                return FindOilCell(GameScene.Game?.CompanionBox?.InventoryGrid?.Grid);
+            }
+
+            private DXItemCell FindOilCell(IEnumerable<DXItemCell> cells)
+            {
+                return cells?.FirstOrDefault(x => x?.Item?.Info?.ItemName == _oilName && !x.Locked);
+            }
+
+            private long CountOil()
+            {
+                long count = CountOil(GameScene.Game?.InventoryBox?.Grid?.Grid);
+                count += CountOil(GameScene.Game?.CompanionBox?.InventoryGrid?.Grid);
+                return count;
+            }
+
+            private long CountOil(IEnumerable<DXItemCell> cells)
+            {
+                if (cells == null)
+                    return 0;
+
+                return cells.Where(x => x?.Item?.Info?.ItemName == _oilName).Sum(x => x.Item.Count);
+            }
+
+            private void RefreshDisplay()
+            {
+                ClientUserItem weapon = GetWeapon();
+                int currentValue = GetWeaponStat(weapon);
+
+                SetLabelText(_currentValueLabel, $"当前武器{_statName}: {FormatStat(currentValue)}");
+                SetLabelText(_remainingOilLabel, $"{_oilName}剩余: {CountOil():#,##0}");
+                SetLabelText(_consumedOilLabel, $"当前{_oilName}消耗: {_consumedOil:#,##0}");
+
+                foreach (int milestone in Milestones)
+                    SetLabelText(_milestoneLabels[milestone], $"达到 +{milestone} 次数: {_milestoneCounts[milestone]:#,##0}");
+            }
+
+            private static string FormatStat(int value)
+            {
+                return value > 0 ? $"+{value}" : value.ToString();
+            }
+
+            private static void SetLabelText(DXLabel label, string text)
+            {
+                if (label != null && label.Text != text)
+                    label.Text = text;
+            }
+
+            protected override void Dispose(bool disposing)
+            {
+                base.Dispose(disposing);
+
+                if (!disposing) return;
+
+                Starting = null;
+                _pendingCell = null;
+                _pendingItem = null;
+                _targetBox = null;
+                _toggleButton = null;
+                _resetButton = null;
+                _currentValueLabel = null;
+                _remainingOilLabel = null;
+                _consumedOilLabel = null;
+                _milestoneLabels.Clear();
             }
         }
 
