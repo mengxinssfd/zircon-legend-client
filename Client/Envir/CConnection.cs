@@ -1262,6 +1262,9 @@ namespace Client.Envir
                             BlendRate = 0.6F
                         });
 
+                        if (ob == MapObject.User)
+                            GameScene.Game.MapControl.CompleteTeleportTracking();
+
                         DXSoundManager.Play(SoundIndex.TeleportIn);
                         break;
                     case Effect.FullBloom:

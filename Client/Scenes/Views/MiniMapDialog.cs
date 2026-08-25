@@ -101,7 +101,13 @@ namespace Client.Scenes.Views
 
         private void Image_BeforeChildrenDraw(object sender, EventArgs e)
         {
-            GameScene.Game?.MapControl?.DrawMapClickPath(Image, ScaleX, ScaleY, Opacity);
+            MapControl mapControl = GameScene.Game?.MapControl;
+
+            if (mapControl == null)
+                return;
+
+            mapControl.DrawMapClickPath(Image, ScaleX, ScaleY, Opacity);
+            mapControl.DrawTeleportMarker(Image, ScaleX, ScaleY);
         }
 
         private void Image_Moving(object sender, System.Windows.Forms.MouseEventArgs e)

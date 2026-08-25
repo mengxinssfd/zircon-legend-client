@@ -233,6 +233,7 @@ namespace Client.Scenes.Views
                 return;
 
             mapControl.DrawMapClickPath(Image, ScaleX, ScaleY, Opacity);
+            mapControl.DrawTeleportMarker(Image, ScaleX, ScaleY);
         }
 
         private void Image_MouseMove(object sender, MouseEventArgs e)

@@ -28,6 +28,11 @@ namespace Client.Scenes.Views
         public PathFinder PathFinder { get; set; } = null;
         public List<Node> CurrentPath { get; set; } = null;
         public bool ShowMapClickPath { get; set; }
+        private DateTime _teleportPendingUntil = DateTime.MinValue;
+        private DateTime _teleportMarkerStart = DateTime.MinValue;
+        private Point _teleportMarkerLocation;
+        private int _teleportMapIndex = -1;
+        private const double _teleportMarkerDuration = 800D;
         public bool AutoPath
         {
             get
@@ -2464,6 +2469,35 @@ namespace Client.Scenes.Views
             }
         }
 
+        public void BeginTeleportTracking()
+        {
+            // 5 秒不是动画延迟，而是“随机卷请求”和服务器返回 TeleportIn 的关联有效期。
+            // 原因是随机卷可能使用失败，客户端不会收到成功传送事件。
+            // 如果不设超时，残留状态可能让之后其他传送误触发落点动画。
+            // 正常网络下收到 TeleportIn 会立即绘制，不会等待 5 秒。
+            _teleportPendingUntil = CEnvir.Now.AddSeconds(5);
+        }
+
+        public void CompleteTeleportTracking()
+        {
+            // CompleteTeleportTracking() 不执行传送，只负责在收到玩家的 TeleportIn 后完成落点动画登记：
+            // 检查是否在使用随机卷后的 5 秒等待期内。
+            // 记录传送后的 User.CurrentLocation。
+            // 记录当前地图编号。
+            // 设置动画开始时间。
+            // DrawTeleportMarker() 根据这些数据绘制收缩方框。
+            // 如果随机卷使用失败，没有收到 TeleportIn，则不会启动动画。
+            if (CEnvir.Now > _teleportPendingUntil || MapInfo == null || User == null)
+            {
+                _teleportPendingUntil = DateTime.MinValue;
+                return;
+            }
+            _teleportPendingUntil = DateTime.MinValue;
+            _teleportMarkerLocation = User.CurrentLocation;
+            _teleportMapIndex = MapInfo.Index;
+            _teleportMarkerStart = CEnvir.Now;
+        }
+
         public void DrawMapClickPath(DXImageControl image, float scaleX, float scaleY, float opacity)
         {
             List<Node> path = CurrentPath;
@@ -2494,6 +2528,50 @@ namespace Client.Scenes.Views
                 points[i - firstRemainingNode + 1] = new Vector2(scaleX * location.X, scaleY * location.Y);
             }
 
+            DrawMapLines(image, Color.FromArgb((int)(220 * opacity), 0, 255, 64), points);
+        }
+
+        public void DrawTeleportMarker(DXImageControl image, float scaleX, float scaleY)
+        {
+            double markerElapsed = (CEnvir.Now - _teleportMarkerStart).TotalMilliseconds;
+            bool drawMarker = _teleportMarkerStart != DateTime.MinValue &&
+                              _teleportMapIndex == MapInfo?.Index &&
+                              markerElapsed >= 0 && markerElapsed < _teleportMarkerDuration;
+
+            if (!drawMarker)
+            {
+                if (_teleportMarkerStart != DateTime.MinValue && markerElapsed >= _teleportMarkerDuration)
+                    _teleportMarkerStart = DateTime.MinValue;
+
+                return;
+            }
+
+            float progress = (float)(markerElapsed / _teleportMarkerDuration);
+            float centerX = scaleX * _teleportMarkerLocation.X - 1F;
+            float centerY = scaleY * _teleportMarkerLocation.Y - 1F;
+            Vector2[][] markerLines = new Vector2[2][];
+
+            for (int i = 0; i < markerLines.Length; i++)
+            {
+                float halfSize = i * 4F + 10F * scaleX - 14F * progress;
+                markerLines[i] = new[]
+                {
+                    new Vector2(centerX - halfSize, centerY - halfSize),
+                    new Vector2(centerX + halfSize, centerY - halfSize),
+                    new Vector2(centerX + halfSize, centerY + halfSize),
+                    new Vector2(centerX - halfSize, centerY + halfSize),
+                    new Vector2(centerX - halfSize, centerY - halfSize)
+                };
+            }
+
+            DrawMapLines(image, Color.FromArgb(255, 0, 255, 64), markerLines);
+        }
+
+        private void DrawMapLines(DXImageControl image, Color colour, params Vector2[][] lines)
+        {
+            if (image == null || lines == null || lines.Length == 0)
+                return;
+
             Surface currentSurface = DXManager.CurrentSurface;
             float lineWidth = DXManager.Line.Width;
 
@@ -2502,7 +2580,13 @@ namespace Client.Scenes.Views
                 DXManager.SetSurface(DXManager.ScratchSurface);
                 DXManager.Device.Clear(ClearFlags.Target, 0, 0, 0);
                 DXManager.Line.Width = 2F;
-                DXManager.Line.Draw(points, Color.FromArgb((int)(220 * opacity), 0, 255, 64));
+
+                foreach (Vector2[] points in lines)
+                {
+                    if (points == null || points.Length < 2) continue;
+
+                    DXManager.Line.Draw(points, colour);
+                }
             }
             finally
             {
