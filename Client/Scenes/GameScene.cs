@@ -1805,12 +1805,11 @@ namespace Client.Scenes
                         break;
                     case KeyBindAction.Guaji:
                         // GameScene.Game.ReceiveChat("挂机功能暂未开放，敬请期待...", MessageType.System);
-                        if (!MapControl.MapInfo.AllowRT && !Game.User.Buffs.Exists(x => x.Type == BuffType.Developer))
-                            GameScene.Game.ReceiveChat("目前您在不允许使用自动打怪功能的地图，因此不能挂机", MessageType.System);
+                        if (Game.BigPatchBox?.Helper?.AndroidPlayer == null)
+                            break;
                         // else if (Game.User.Zdgjgongneng)
                         //    GameScene.Game.ReceiveChat("每天18 : 00 点至 22 : 00 点不允许自动挂机的时间，因此不能挂机", MessageType.System);
-                        else
-                            Game.BigPatchBox.Helper.AndroidPlayer.Checked = !Game.BigPatchBox.Helper.AndroidPlayer.Checked;
+                        Game.BigPatchBox.Helper.AndroidPlayer.Checked = !Game.BigPatchBox.Helper.AndroidPlayer.Checked;
                         break;
                     default:
                         continue;
@@ -5826,9 +5825,8 @@ namespace Client.Scenes
             //}
             //else
             {
-                if (MapControl.MapInfo.AllowRT)
-                    if (!BigPatchBox.Helper.AndroidPlayer.Visible)
-                        BigPatchBox.Helper.AndroidPlayer.Visible = true;
+                if (!BigPatchBox.Helper.AndroidPlayer.Visible)
+                    BigPatchBox.Helper.AndroidPlayer.Visible = true;
             }
         }
         public void AutoGuajiChanged()
