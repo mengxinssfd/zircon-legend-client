@@ -162,6 +162,7 @@ namespace Client.Scenes.Views
             Image.MouseClick += Image_MouseClick;
             Image.MouseMove += Image_MouseMove;
             Image.MouseLeave += Image_MouseLeave;
+            Image.BeforeChildrenDraw += Image_BeforeChildrenDraw;
         }
 
         private void Image_MouseClick(object sender, MouseEventArgs e)
@@ -172,6 +173,7 @@ namespace Client.Scenes.Views
             //if (MapObject.User.Buffs.All(z => z.Type != BuffType.Developer))
             //if (!SelectedInfo.AllowRT || !SelectedInfo.AllowTT || !GameScene.Game.MapControl.MapInfo.AllowRT || !GameScene.Game.MapControl.MapInfo.AllowTT) return;
             GameScene.Game.MapControl.AutoPath = false;
+            GameScene.Game.MapControl.ShowMapClickPath = false;
 
 
             if ((e.Button & MouseButtons.Right) == MouseButtons.Right)
@@ -209,6 +211,7 @@ namespace Client.Scenes.Views
                         {
                             GameScene.Game.MapControl.PathFinder = pathFinder;
                             GameScene.Game.MapControl.CurrentPath = path;
+                            GameScene.Game.MapControl.ShowMapClickPath = true;
                             GameScene.Game.MapControl.AutoPath = true;
                         }
                     }
@@ -220,6 +223,16 @@ namespace Client.Scenes.Views
                 else
                     GameScene.Game.ReceiveChat("正在为你查找合适的线路，请稍等。。。", MessageType.System);
             }
+        }
+
+        private void Image_BeforeChildrenDraw(object sender, EventArgs e)
+        {
+            MapControl mapControl = GameScene.Game?.MapControl;
+
+            if (mapControl == null || SelectedInfo != mapControl.MapInfo)
+                return;
+
+            mapControl.DrawMapClickPath(Image, ScaleX, ScaleY, Opacity);
         }
 
         private void Image_MouseMove(object sender, MouseEventArgs e)

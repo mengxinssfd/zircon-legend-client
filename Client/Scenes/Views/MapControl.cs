@@ -27,6 +27,7 @@ namespace Client.Scenes.Views
         public static UserObject User => GameScene.Game.User;
         public PathFinder PathFinder { get; set; } = null;
         public List<Node> CurrentPath { get; set; } = null;
+        public bool ShowMapClickPath { get; set; }
         public bool AutoPath
         {
             get
@@ -39,7 +40,10 @@ namespace Client.Scenes.Views
                     return;
                 _autoPath = value;
                 if (!_autoPath)
+                {
                     CurrentPath = null;
+                    ShowMapClickPath = false;
+                }
                 if (GameScene.Game == null || Config.开始挂机)
                     return;
                 GameScene.Game.ReceiveChat(value ? "[寻路:开 (停止:鼠标左键或右键)]" : "[寻路:关]", MessageType.System);
@@ -2458,6 +2462,55 @@ namespace Client.Scenes.Views
                         }));
                 }
             }
+        }
+
+        public void DrawMapClickPath(DXImageControl image, float scaleX, float scaleY, float opacity)
+        {
+            List<Node> path = CurrentPath;
+
+            if (!AutoPath || !ShowMapClickPath || image == null || User == null || path == null || path.Count == 0)
+                return;
+
+            Point currentLocation = User.CurrentLocation;
+            int firstRemainingNode = 0;
+
+            for (int i = path.Count - 1; i >= 0; i--)
+            {
+                if (path[i].Location != currentLocation) continue;
+
+                firstRemainingNode = i + 1;
+                break;
+            }
+
+            if (firstRemainingNode >= path.Count)
+                return;
+
+            Vector2[] points = new Vector2[path.Count - firstRemainingNode + 1];
+            points[0] = new Vector2(scaleX * currentLocation.X, scaleY * currentLocation.Y);
+
+            for (int i = firstRemainingNode; i < path.Count; i++)
+            {
+                Point location = path[i].Location;
+                points[i - firstRemainingNode + 1] = new Vector2(scaleX * location.X, scaleY * location.Y);
+            }
+
+            Surface currentSurface = DXManager.CurrentSurface;
+            float lineWidth = DXManager.Line.Width;
+
+            try
+            {
+                DXManager.SetSurface(DXManager.ScratchSurface);
+                DXManager.Device.Clear(ClearFlags.Target, 0, 0, 0);
+                DXManager.Line.Width = 2F;
+                DXManager.Line.Draw(points, Color.FromArgb((int)(220 * opacity), 0, 255, 64));
+            }
+            finally
+            {
+                DXManager.Line.Width = lineWidth;
+                DXManager.SetSurface(currentSurface);
+            }
+
+            PresentTexture(DXManager.ScratchTexture, image.Parent, image.DisplayArea, Color.White, image);
         }
 
         /// <summary>

@@ -94,9 +94,15 @@ namespace Client.Scenes.Views
             Image.Moving += Image_Moving;
             Image.MouseMove += Image_MouseMove;
             Image.MouseLeave += Image_MouseLeave;
+            Image.BeforeChildrenDraw += Image_BeforeChildrenDraw;
         }
 
         #region Methods
+
+        private void Image_BeforeChildrenDraw(object sender, EventArgs e)
+        {
+            GameScene.Game?.MapControl?.DrawMapClickPath(Image, ScaleX, ScaleY, Opacity);
+        }
 
         private void Image_Moving(object sender, System.Windows.Forms.MouseEventArgs e)
         {
