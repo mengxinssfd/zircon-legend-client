@@ -1454,7 +1454,9 @@ namespace Client.Controls
                     if (!GameScene.Game.CanUseItem(Item) || 
                         GridType != GridType.Inventory && GridType != GridType.CompanionEquipment && GridType != GridType.CompanionInventory) return false;
 
-                    if ((CEnvir.Now < GameScene.Game.UseItemTime && Item.Info.Effect != ItemEffect.ElixirOfPurification) || MapObject.User.Horse != HorseType.None) return false;
+                    //if ((CEnvir.Now < GameScene.Game.UseItemTime && Item.Info.Effect != ItemEffect.ElixirOfPurification) || MapObject.User.Horse != HorseType.None) return false;
+                    if (CEnvir.Now < GameScene.Game.UseItemTime && Item.Info.Effect != ItemEffect.ElixirOfPurification) return false;
+
 
                     GameScene.Game.UseItemTime = CEnvir.Now.AddMilliseconds(Math.Max(250, Item.Info.Shape == 29 ? 0 : Item.Info.Durability));
 
