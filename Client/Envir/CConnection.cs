@@ -2125,6 +2125,11 @@ namespace Client.Envir
         {
             GameScene.Game.UseItemTime = CEnvir.Now + p.Delay;
         }
+        public void Process(S.TeleportScrollUsed p)
+        {
+            // 服务端自动使用传送卷轴(保护槽触发)时，武装落点追踪，使随后收到的 TeleportIn 能登记落点标记
+            GameScene.Game.MapControl.BeginTeleportTracking();
+        }
         public void Process(S.ItemSplit p)
         {
             
