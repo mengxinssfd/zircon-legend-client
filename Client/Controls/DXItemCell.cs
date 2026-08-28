@@ -905,7 +905,8 @@ namespace Client.Controls
             {
                 
                 if (GridType == toCell.GridType) return;
-                if (!Item.Info.CanAutoPot) return;
+                // 允许药品(CanAutoPot)、回城卷(Consumable, Shape==2)、随机传送卷(Consumable, Shape==3)
+                if (!Item.Info.CanAutoPot && !Item.Info.IsTeleportScroll()) return;
 
                 if (Selected) SelectedCell = null;
 
