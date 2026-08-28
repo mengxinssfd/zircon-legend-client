@@ -333,6 +333,55 @@ namespace Client.Models
             }
             UpdateFrame();
 
+            if (CurrentFrame != null && (CurrentAction == MirAction.Moving || CurrentAction == MirAction.Pushed))
+            {
+                double totalMs = 0;
+                foreach (TimeSpan delay in CurrentFrame.Delays)
+                    totalMs += delay.TotalMilliseconds;
+
+                if (totalMs > 0)
+                {
+                    double elapsed = (CEnvir.Now - FrameStart).TotalMilliseconds;
+                    double progress = Math.Max(0, Math.Min(1, elapsed / totalMs));
+
+                    int smX = 0, smY = 0;
+                    switch (Direction)
+                    {
+                        case MirDirection.Up:
+                            smY = (int)(CellHeight * MoveDistance * (1 - progress));
+                            break;
+                        case MirDirection.UpRight:
+                            smX = -(int)(CellWidth * MoveDistance * (1 - progress));
+                            smY = (int)(CellHeight * MoveDistance * (1 - progress));
+                            break;
+                        case MirDirection.Right:
+                            smX = -(int)(CellWidth * MoveDistance * (1 - progress));
+                            break;
+                        case MirDirection.DownRight:
+                            smX = -(int)(CellWidth * MoveDistance * (1 - progress));
+                            smY = -(int)(CellHeight * MoveDistance * (1 - progress));
+                            break;
+                        case MirDirection.Down:
+                            smY = -(int)(CellHeight * MoveDistance * (1 - progress));
+                            break;
+                        case MirDirection.DownLeft:
+                            smX = (int)(CellWidth * MoveDistance * (1 - progress));
+                            smY = -(int)(CellHeight * MoveDistance * (1 - progress));
+                            break;
+                        case MirDirection.Left:
+                            smX = (int)(CellWidth * MoveDistance * (1 - progress));
+                            break;
+                        case MirDirection.UpLeft:
+                            smX = (int)(CellWidth * MoveDistance * (1 - progress));
+                            smY = (int)(CellHeight * MoveDistance * (1 - progress));
+                            break;
+                    }
+                    smX -= smX % 2;
+                    smY -= smY % 2;
+                    MovingOffSet = new Point(smX, smY);
+                }
+            }
+
             DrawX = CurrentLocation.X - User.CurrentLocation.X + MapControl.OffSetX;
             DrawY = CurrentLocation.Y - User.CurrentLocation.Y + MapControl.OffSetY;
 
