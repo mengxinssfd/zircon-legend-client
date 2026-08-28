@@ -333,7 +333,7 @@ namespace Client.Models
             }
             UpdateFrame();
 
-            if (CurrentFrame != null && (CurrentAction == MirAction.Moving || CurrentAction == MirAction.Pushed))
+            if (Client.Envir.Config.SmoothMove && CurrentFrame != null && (CurrentAction == MirAction.Moving || CurrentAction == MirAction.Pushed))
             {
                 double totalMs = 0;
                 foreach (TimeSpan delay in CurrentFrame.Delays)

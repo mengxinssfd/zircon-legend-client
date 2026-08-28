@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -29,6 +29,7 @@ namespace Client.Envir
         public static string MapPath { get; set; } = @".\Map\";
         public static bool ClipMouse { get; set; } = false;
         public static bool DebugLabel { get; set; } = false;
+        public static bool SmoothMove { get; set; } = true;
         public static float FontSizeMod { get; set; } = 0.0F;
         public static string Language { get; set; } = "Chinese";
         public static bool Borderless { get; set; } = false;

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.Windows.Forms;
 using Client.Envir;
@@ -21,7 +21,7 @@ namespace Client.Controls
 
         //Grpahics
         public DXTab GraphicsTab;
-        public DXCheckBox FullScreenCheckBox, VSyncCheckBox, LimitFPSCheckBox, ClipMouseCheckBox, DebugLabelCheckBox;
+        public DXCheckBox FullScreenCheckBox, VSyncCheckBox, LimitFPSCheckBox, ClipMouseCheckBox, DebugLabelCheckBox, SmoothMoveCheckBox;
         private DXComboBox GameSizeComboBox, LanguageComboBox;
 
         //Sound
@@ -61,6 +61,7 @@ namespace Client.Controls
             LimitFPSCheckBox.Checked = Config.LimitFPS;
             ClipMouseCheckBox.Checked = Config.ClipMouse;
             DebugLabelCheckBox.Checked = Config.DebugLabel;
+            SmoothMoveCheckBox.Checked = Config.SmoothMove;
             LanguageComboBox.ListBox.SelectItem(Config.Language);
 
             BackgroundSoundBox.Checked = Config.SoundInBackground;
@@ -237,6 +238,16 @@ namespace Client.Controls
                 Parent = GraphicsTab,
             };
             DebugLabelCheckBox.Location = new Point(120 - DebugLabelCheckBox.Size.Width, 120);
+
+            SmoothMoveCheckBox = new DXCheckBox
+            {
+                bAlignRight = true,
+                AutoSize = true,
+                Text = "平滑移动:",
+                Parent = GraphicsTab,
+                Checked = Config.SmoothMove,
+            };
+            SmoothMoveCheckBox.Location = new Point(120 - SmoothMoveCheckBox.Size.Width, 160);
 
             label = new DXLabel
             {
@@ -587,6 +598,7 @@ namespace Client.Controls
             Config.LimitFPS = LimitFPSCheckBox.Checked;
             Config.ClipMouse = ClipMouseCheckBox.Checked;
             Config.DebugLabel = DebugLabelCheckBox.Checked;
+            Config.SmoothMove = SmoothMoveCheckBox.Checked;
 
             DebugLabel.IsVisible = Config.DebugLabel;
             PingLabel.IsVisible = Config.DebugLabel;
@@ -742,6 +754,14 @@ namespace Client.Controls
                         DebugLabelCheckBox.Dispose();
 
                     DebugLabelCheckBox = null;
+                }
+
+                if (SmoothMoveCheckBox != null)
+                {
+                    if (!SmoothMoveCheckBox.IsDisposed)
+                        SmoothMoveCheckBox.Dispose();
+
+                    SmoothMoveCheckBox = null;
                 }
 
                 if (GameSizeComboBox != null)
