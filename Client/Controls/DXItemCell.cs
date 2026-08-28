@@ -1464,9 +1464,9 @@ namespace Client.Controls
                     Locked = true;
 
                     CEnvir.Enqueue(new C.ItemUse { Link = new CellLinkInfo { GridType = GridType, Slot = Slot, Count = 1 } });
-                    // 2是回城，3是随机
-                    if (Item.Info.ItemType == ItemType.Consumable && (Item.Info.Shape == 2 || Item.Info.Shape == 3))
-                        GameScene.Game.MapControl.BeginTeleportTracking();
+                  
+                    if (Item.Info.IsTeleportScroll()) GameScene.Game.MapControl.BeginTeleportTracking();
+
                     PlayItemSound();
                     break;
                 case ItemType.Book:
