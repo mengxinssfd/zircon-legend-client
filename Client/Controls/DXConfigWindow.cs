@@ -22,7 +22,7 @@ namespace Client.Controls
         //Grpahics
         public DXTab GraphicsTab;
         public DXCheckBox FullScreenCheckBox, VSyncCheckBox, LimitFPSCheckBox, ClipMouseCheckBox, DebugLabelCheckBox, SmoothMoveCheckBox;
-        private DXComboBox GameSizeComboBox, LanguageComboBox;
+        private DXComboBox GameSizeComboBox;
 
         //Sound
         public DXTab SoundTab;
@@ -62,7 +62,6 @@ namespace Client.Controls
             ClipMouseCheckBox.Checked = Config.ClipMouse;
             DebugLabelCheckBox.Checked = Config.DebugLabel;
             SmoothMoveCheckBox.Checked = Config.SmoothMove;
-            LanguageComboBox.ListBox.SelectItem(Config.Language);
 
             BackgroundSoundBox.Checked = Config.SoundInBackground;
             SystemVolumeBox.ValueTextBox.TextBox.Text = Config.SystemVolume.ToString();
@@ -247,31 +246,7 @@ namespace Client.Controls
                 Parent = GraphicsTab,
                 Checked = Config.SmoothMove,
             };
-            SmoothMoveCheckBox.Location = new Point(120 - SmoothMoveCheckBox.Size.Width, 160);
-
-            label = new DXLabel
-            {
-                AutoSize = true,
-                Text = "语言:",
-                Outline = true,
-                Parent = GraphicsTab,
-            };
-            label.Location = new Point(104 - label.Size.Width, 140);
-
-            LanguageComboBox = new DXComboBox
-            {
-                Parent = GraphicsTab,
-                Location = new Point(104, 140),
-                Size = new Size(100, DXComboBox.DefaultNormalHeight),
-            };
-
-            foreach (string language in Globals.Languages)
-                new DXListBoxItem
-                {
-                    Parent = LanguageComboBox.ListBox,
-                    Label = { Text = language },
-                    Item = language
-                };
+            SmoothMoveCheckBox.Location = new Point(120 - SmoothMoveCheckBox.Size.Width, 140);
             #endregion
 
             #region Sound
@@ -579,16 +554,6 @@ namespace Client.Controls
                 }
             }
 
-            if (LanguageComboBox.SelectedItem is string && Config.Language != (string)LanguageComboBox.SelectedItem)
-            {
-
-                Config.Language = (string) LanguageComboBox.SelectedItem;
-
-                if (CEnvir.Connection != null && CEnvir.Connection.ServerConnected)
-                    CEnvir.Enqueue(new C.SelectLanguage { Language = Config.Language });
-            }
-
-
             if (Config.VSync != VSyncCheckBox.Checked)
             {
                 Config.VSync = VSyncCheckBox.Checked;
@@ -770,13 +735,6 @@ namespace Client.Controls
                         GameSizeComboBox.Dispose();
 
                     GameSizeComboBox = null;
-                }
-                if (LanguageComboBox != null)
-                {
-                    if (!LanguageComboBox.IsDisposed)
-                        LanguageComboBox.Dispose();
-
-                    LanguageComboBox = null;
                 }
                 
                 #endregion
