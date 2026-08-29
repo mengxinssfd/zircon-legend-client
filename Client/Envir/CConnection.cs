@@ -1263,7 +1263,10 @@ namespace Client.Envir
                         });
 
                         if (ob == MapObject.User)
+                        {
                             GameScene.Game.MapControl.CompleteTeleportTracking();
+                            GameScene.Game.BigPatchBox?.OnSelfTeleportIn();
+                        }
 
                         DXSoundManager.Play(SoundIndex.TeleportIn);
                         break;

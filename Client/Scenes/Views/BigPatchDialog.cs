@@ -1,4 +1,4 @@
-﻿using Client.Controls;
+using Client.Controls;
 using Client.Envir;
 using Client.Models;
 using Client.UserModels;
@@ -34,6 +34,8 @@ namespace Client.Scenes.Views
         public DXAutoPickItemTab AutoPick;
         public DXMagicHelperTab Magic { get; set; }
         public DateTime _ProtectTime;
+        private DateTime _RandomProtectScanTime;
+        private bool _IsFromRandomProtect;
 
         private ClientUserMagic FlamingSword = null;
         private ClientUserMagic DragonRise = null;
@@ -797,14 +799,22 @@ namespace Client.Scenes.Views
                     CEnvir.Enqueue(new GroupSwitch { Allow = !GameScene.Game.GroupBox.AllowGroup });
             }
 
-            if (Config.是否开启随机保护)
+            if (Config.是否开启随机保护 && !MapObject.User.Dead)
             {
                 float num = (float)Config.血量剩下百分之多少时自动随机 / 100f;
-                if ((double)GameScene.Game.User.CurrentHP < (double)GameScene.Game.User.Stats[Stat.Health] * (double)num && CEnvir.Now > _ProtectTime)
+                if ((double)GameScene.Game.User.CurrentHP < (double)GameScene.Game.User.Stats[Stat.Health] * (double)num)
                 {
-                    DXItemCell dxItemCell = GameScene.Game.InventoryBox.Grid.Grid.FirstOrDefault(x => x?.Item?.Info.ItemName == "随机传送卷");
-                    if (dxItemCell != null && dxItemCell.UseItem())
-                        _ProtectTime = CEnvir.Now.AddSeconds(5.0);
+                    if (!MapObject.User.InSafeZone && CEnvir.Now > _ProtectTime)
+                    {
+                        DXItemCell dxItemCell = GameScene.Game.InventoryBox.Grid.Grid.FirstOrDefault(x => x?.Item?.Info.ItemName == "随机传送卷");
+                        if (dxItemCell != null && dxItemCell.UseItem())
+                            _ProtectTime = CEnvir.Now.AddSeconds(1.0);
+                        _IsFromRandomProtect = true;
+                    }
+                }
+                else
+                {
+                    _IsFromRandomProtect = false;
                 }
             }
             if (Config.自动学习技能书 && CEnvir.Now > GameScene.Game.UseItemTime && MapObject.User.Horse == HorseType.None)
@@ -829,6 +839,32 @@ namespace Client.Scenes.Views
 
             if (Config.是否开启指定时间无经验或者未杀死目标自动随机)
                 Helper.ExpAutoRandoms();
+        }
+
+        // 落点事件：玩家传送落地时记录落点并检测怪密集度（仅供随机保护使用）
+        public void OnSelfTeleportIn()
+        {
+            if (!Config.是否开启随机保护 || !_IsFromRandomProtect) return;
+            // 如果当前随机落点是安全的，那么等待5秒后再看看血量是否是健康的
+            if (IsSafeTeleportZone()) _ProtectTime = CEnvir.Now.AddSeconds(5.0);
+        }
+
+        // 判定落点是否为安全传送点：正处于地图安全区内，或落点周围怪数量未超过设定值
+        private bool IsSafeTeleportZone()
+        {
+            return MapObject.User.InSafeZone || CountMonstersAround(MapObject.User.CurrentLocation, (int)Config.随机保护范围) <= Config.随机保护怪数量;
+        }
+
+        // 统计 center 周围 range 格（切比雪夫距离）内未死亡怪物数量
+        private int CountMonstersAround(Point center, int range)
+        {
+            int count = 0;
+            foreach (var ob in GameScene.Game.MapControl.Objects)
+            {
+                if (ob is MonsterObject mon && !mon.Dead && Functions.Distance(center, ob.CurrentLocation) <= range)
+                    count++;
+            }
+            return count;
         }
         private bool _AutoUseBook(DXItemCell[] grid)
         {
@@ -2108,10 +2144,6 @@ namespace Client.Scenes.Views
             public DXNumberBox AndroidCoordY;
             public DXNumberBox AndroidCoordRange;
             public DXCheckBox AndroidLockRange;
-            public DXNumberBox AndroidBackCastleMinPHValue;
-            public DXCheckBox AndroidMinPHBackCastle;
-            public DXNumberBox AndroidRandomMinPHValue;
-            public DXCheckBox AndroidMinPHRandom;
             public DXNumberBox TimeBoxRandom;
             public DXCheckBox ChkAutoRandom;
             public DXNumberBox ExpTimeBoxRandom;
@@ -2586,36 +2618,12 @@ namespace Client.Scenes.Views
 
                 AndroidLockRange = CreateCheckBox(Android, "范围挂机", x7 + 170, y14, ((o, e) => Config.范围挂机 = AndroidLockRange.Checked), Config.范围挂机);
 
-                DXLabel dxLabel17 = new DXLabel();
-                dxLabel17.Parent = Android;
-                dxLabel17.Text = "血量低于 % :";
-                dxLabel17.Outline = true;
-                dxLabel17.Hint = "　　百分比值";
-                int y16;
-                dxLabel17.Location = new Point(x7, y16 = y14 + 50);
-                DXLabel dxLabel18 = dxLabel17;
-                DXNumberBox dxNumberBox7 = new DXNumberBox();
-                dxNumberBox7.Parent = Android;
-                dxNumberBox7.Size = new Size(80, 20);
-                dxNumberBox7.ValueTextBox.Size = new Size(40, 18);
-                dxNumberBox7.MaxValue = 100L;
-                dxNumberBox7.MinValue = 1L;
-                dxNumberBox7.Value = Config.血量剩下百分之多少时自动随机;
-                dxNumberBox7.UpButton.Location = new Point(63, 1);
-                int num18 = x7;
-                size = dxLabel18.Size;
-                int width7 = size.Width;
-                dxNumberBox7.Location = new Point(num18 + width7, y16);
-                AndroidRandomMinPHValue = dxNumberBox7;
-                AndroidRandomMinPHValue.ValueTextBox.ValueChanged += ((o, e) => Config.血量剩下百分之多少时自动随机 = AndroidRandomMinPHValue.Value);
-                AndroidMinPHRandom = CreateCheckBox(Android, "随机保护", x7 + 170, y16, ((o, e) => Config.是否开启随机保护 = AndroidMinPHRandom.Checked), Config.是否开启随机保护);
-
                 DXLabel dxLabel19 = new DXLabel();
                 dxLabel19.Parent = Android;
                 dxLabel19.Text = "每间隔(秒) :";
                 dxLabel19.Outline = true;
                 int y17;
-                dxLabel19.Location = new Point(x7, y17 = y16 + 20);
+                dxLabel19.Location = new Point(x7, y17 = y14 + 50);
                 DXLabel dxLabel20 = dxLabel19;
                 DXNumberBox dxNumberBox8 = new DXNumberBox();
                 dxNumberBox8.Parent = Android;
@@ -3234,6 +3242,7 @@ namespace Client.Scenes.Views
             public ClientAutoPotionLink[] Links;
             public BigPatchDialog.AutoPotionRow[] Rows;
             public new bool Updating;
+            public DXCheckBox ProtectRandom;
 
             public DXProtectionTab()
             {
@@ -3249,6 +3258,74 @@ namespace Client.Scenes.Views
                     autoPotionRow.Index = index1;
                     rows[index2] = autoPotionRow;
                 }
+
+                // —— 随机保护（自辅助-挂机组迁入，置于右侧空区；左侧为药品槽） ——
+                int protectRowX = 275;
+
+                ProtectRandom = CreateCheckBox(this, "随机保护", protectRowX, 5, ((o, e) => Config.是否开启随机保护 = ProtectRandom.Checked), Config.是否开启随机保护);
+
+                DXLabel rpHealthLabel = new DXLabel
+                {
+                    Parent = this,
+                    Text = "血量低于 % :",
+                    Outline = true,
+                    Hint = "百分比值",
+                };
+                rpHealthLabel.Location = new Point(protectRowX, 30);
+
+                DXNumberBox rpHealthBox = new DXNumberBox();
+                rpHealthBox.Parent = this;
+                rpHealthBox.Size = new Size(80, 20);
+                rpHealthBox.ValueTextBox.Size = new Size(40, 18);
+                rpHealthBox.MaxValue = 100L;
+                rpHealthBox.Change = 5L;
+                rpHealthBox.MinValue = 1L;
+                rpHealthBox.Value = Config.血量剩下百分之多少时自动随机;
+                rpHealthBox.UpButton.Location = new Point(63, 1);
+                rpHealthBox.Location = new Point(protectRowX + rpHealthLabel.Size.Width, 30);
+                rpHealthBox.ValueTextBox.ValueChanged += ((o, e) => Config.血量剩下百分之多少时自动随机 = rpHealthBox.Value);
+
+                DXLabel rpCountLabel = new DXLabel
+                {
+                    Parent = this,
+                    Text = "范围内怪数量 :",
+                    Outline = true,
+                    Hint = "落点范围内怪物达到该数量视为密集，则会再次使用随机，否则会等待5秒回血",
+                };
+                rpCountLabel.Location = new Point(protectRowX, 55);
+
+                DXNumberBox rpCountBox = new DXNumberBox();
+                rpCountBox.Parent = this;
+                rpCountBox.Size = new Size(80, 20);
+                rpCountBox.ValueTextBox.Size = new Size(40, 18);
+                rpCountBox.MaxValue = 1000L;
+                rpCountBox.Change = 1L;
+                rpCountBox.MinValue = 1L;
+                rpCountBox.Value = Config.随机保护怪数量;
+                rpCountBox.UpButton.Location = new Point(63, 1);
+                rpCountBox.Location = new Point(protectRowX + rpCountLabel.Size.Width, 55);
+                rpCountBox.ValueTextBox.ValueChanged += ((o, e) => Config.随机保护怪数量 = rpCountBox.Value);
+
+                DXLabel rpRangeLabel = new DXLabel
+                {
+                    Parent = this,
+                    Text = "扫描范围 :",
+                    Outline = true,
+                    Hint = "落点扫描半径（格）",
+                };
+                rpRangeLabel.Location = new Point(protectRowX, 80);
+
+                DXNumberBox rpRangeBox = new DXNumberBox();
+                rpRangeBox.Parent = this;
+                rpRangeBox.Size = new Size(80, 20);
+                rpRangeBox.ValueTextBox.Size = new Size(40, 18);
+                rpRangeBox.MaxValue = 1000L;
+                rpRangeBox.Change = 1L;
+                rpRangeBox.MinValue = 1L;
+                rpRangeBox.Value = Config.随机保护范围;
+                rpRangeBox.UpButton.Location = new Point(63, 1);
+                rpRangeBox.Location = new Point(protectRowX + rpRangeLabel.Size.Width, 80);
+                rpRangeBox.ValueTextBox.ValueChanged += ((o, e) => Config.随机保护范围 = rpRangeBox.Value);
             }
 
             public void UpdateLinks()

@@ -176,6 +176,10 @@ namespace Client.Envir
 
         public static bool 是否开启随机保护 { get; set; } = false;
 
+        public static long 随机保护范围 { get; set; } = 9;
+
+        public static long 随机保护怪数量 { get; set; } = 2;
+
         public static long 隔多少秒自动随机一次 { get; set; } = 0;
 
         public static bool 是否开启每间隔自动随机 { get; set; } = false;
