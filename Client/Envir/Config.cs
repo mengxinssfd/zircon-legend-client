@@ -172,10 +172,6 @@ namespace Client.Envir
 
         public static bool 范围挂机 { get; set; } = false;
 
-        public static long 血量剩下百分之多少时自动回城 { get; set; } = 0;
-
-        public static bool 是否开启回城保护 { get; set; } = false;
-
         public static long 血量剩下百分之多少时自动随机 { get; set; } = 0;
 
         public static bool 是否开启随机保护 { get; set; } = false;

@@ -807,17 +807,6 @@ namespace Client.Scenes.Views
                         _ProtectTime = CEnvir.Now.AddSeconds(5.0);
                 }
             }
-            if (Config.是否开启回城保护)
-            {
-                float num = (float)Config.血量剩下百分之多少时自动回城 / 100f;
-                if ((double)GameScene.Game.User.CurrentHP < (double)GameScene.Game.User.Stats[Stat.Health] * (double)num)
-                {
-                    DXItemCell dxItemCell = GameScene.Game.InventoryBox.Grid.Grid.FirstOrDefault(x => x?.Item?.Info.ItemName == "回城卷");
-                    if (dxItemCell != null && dxItemCell.UseItem())
-                        Config.是否开启回城保护 = false;
-                }
-            }
-
             if (Config.自动学习技能书 && CEnvir.Now > GameScene.Game.UseItemTime && MapObject.User.Horse == HorseType.None)
             {
                 if (!_AutoUseBook(GameScene.Game.InventoryBox.Grid.Grid))
@@ -2597,36 +2586,13 @@ namespace Client.Scenes.Views
 
                 AndroidLockRange = CreateCheckBox(Android, "范围挂机", x7 + 170, y14, ((o, e) => Config.范围挂机 = AndroidLockRange.Checked), Config.范围挂机);
 
-                DXLabel dxLabel15 = new DXLabel();
-                dxLabel15.Parent = Android;
-                dxLabel15.Text = "血量低于 % :";
-                dxLabel15.Outline = true;
-                dxLabel15.Hint = "　　百分比值";
-                int y15;
-                dxLabel15.Location = new Point(x7, y15 = y14 + 50);
-                DXLabel dxLabel16 = dxLabel15;
-                DXNumberBox dxNumberBox6 = new DXNumberBox();
-                dxNumberBox6.Parent = Android;
-                dxNumberBox6.Size = new Size(80, 20);
-                dxNumberBox6.ValueTextBox.Size = new Size(40, 18);
-                dxNumberBox6.MaxValue = 100L;
-                dxNumberBox6.MinValue = 1L;
-                dxNumberBox6.Value = Config.血量剩下百分之多少时自动回城;
-                dxNumberBox6.UpButton.Location = new Point(63, 1);
-                int num17 = x7;
-                size = dxLabel16.Size;
-                int width6 = size.Width;
-                dxNumberBox6.Location = new Point(num17 + width6, y15);
-                AndroidBackCastleMinPHValue = dxNumberBox6;
-                AndroidBackCastleMinPHValue.ValueTextBox.ValueChanged += ((o, e) => Config.血量剩下百分之多少时自动回城 = AndroidBackCastleMinPHValue.Value);
-                AndroidMinPHBackCastle = CreateCheckBox(Android, "回城保护", x7 + 170, y15, ((o, e) => Config.是否开启回城保护 = AndroidMinPHBackCastle.Checked), Config.是否开启回城保护);
                 DXLabel dxLabel17 = new DXLabel();
                 dxLabel17.Parent = Android;
                 dxLabel17.Text = "血量低于 % :";
                 dxLabel17.Outline = true;
                 dxLabel17.Hint = "　　百分比值";
                 int y16;
-                dxLabel17.Location = new Point(x7, y16 = y15 + 20);
+                dxLabel17.Location = new Point(x7, y16 = y14 + 50);
                 DXLabel dxLabel18 = dxLabel17;
                 DXNumberBox dxNumberBox7 = new DXNumberBox();
                 dxNumberBox7.Parent = Android;
