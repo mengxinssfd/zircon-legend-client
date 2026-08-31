@@ -35,6 +35,7 @@ namespace Client.Scenes.Views
         public DXMagicHelperTab Magic { get; set; }
         public DateTime _ProtectTime;
         private DateTime _RandomProtectScanTime;
+        private long _RandomProtectCurrentHP;
         private bool _IsFromRandomProtect;
 
         private ClientUserMagic FlamingSword = null;
@@ -802,9 +803,10 @@ namespace Client.Scenes.Views
             if (Config.是否开启随机保护 && !MapObject.User.Dead)
             {
                 float num = (float)Config.血量剩下百分之多少时自动随机 / 100f;
+                // 客户端的CurrentHP与服务端是有延迟的（见服务端MapObject文件的ProcessHPMP方法）
                 if ((double)GameScene.Game.User.CurrentHP < (double)GameScene.Game.User.Stats[Stat.Health] * (double)num)
                 {
-                    if (!MapObject.User.InSafeZone && CEnvir.Now > _ProtectTime)
+                    if (GameScene.Game.User.CurrentHP != _RandomProtectCurrentHP && !MapObject.User.InSafeZone && CEnvir.Now > _ProtectTime)
                     {
                         DXItemCell dxItemCell = GameScene.Game.InventoryBox.Grid.Grid.FirstOrDefault(x => x?.Item?.Info.ItemName == "随机传送卷");
                         if (dxItemCell != null && dxItemCell.UseItem())
@@ -814,8 +816,9 @@ namespace Client.Scenes.Views
                 }
                 else
                 {
+                    _RandomProtectCurrentHP = GameScene.Game.User.CurrentHP;
                     _IsFromRandomProtect = false;
-                }
+                } 
             }
             if (Config.自动学习技能书 && CEnvir.Now > GameScene.Game.UseItemTime && MapObject.User.Horse == HorseType.None)
             {
