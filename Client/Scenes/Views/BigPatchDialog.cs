@@ -2142,6 +2142,9 @@ namespace Client.Scenes.Views
             public DXCheckBox AndroidEluded;
             public DXCheckBox AndroidBackCastle;
             public DXComboBox AndroidSkills;
+            // ！ 改进：挂机技能支持多个（技能2/技能3）
+            public DXComboBox AndroidSkills2;
+            public DXComboBox AndroidSkills3;
             public DXCheckBox AndroidLongRange;
             public DXNumberBox AndroidCoordX;
             public DXNumberBox AndroidCoordY;
@@ -2536,7 +2539,7 @@ namespace Client.Scenes.Views
                 DXComboBox dxComboBox4 = new DXComboBox();
                 dxComboBox4.Parent = Android;
                 dxComboBox4.Size = new Size(120, 18);
-                dxComboBox4.Location = new Point(x7 + 70 + dxLabelSkill.Size.Width + 5, y12);
+                dxComboBox4.Location = new Point(x7 + 70 + dxLabelSkill.Size.Width + 5 + 5, y12);
                 AndroidSkills = dxComboBox4;
                 AndroidSkills.SelectedItemChanged += ((o, e) => 
                 {
@@ -2544,24 +2547,53 @@ namespace Client.Scenes.Views
                     {
                         // 选择了"不使用技能"
                         Config.远战挂机是否使用技能 = false;
-                        Config.挂机自动技能 = MagicType.None;
+                        Config.挂机自动技能[0] = MagicType.None;
                     }
                     else
                     {
                         // 选择了具体技能
                         Config.远战挂机是否使用技能 = true;
-                        Config.挂机自动技能 = (MagicType)AndroidSkills.ListBox.SelectedItem.Item;
+                        Config.挂机自动技能[0] = (MagicType)AndroidSkills.ListBox.SelectedItem.Item;
                     }
                 });
                 
                 
                 
+                // ！ 改进：挂机技能支持多个（技能2、技能3）
+                DXLabel dxLabelSkill2 = new DXLabel();
+                dxLabelSkill2.Parent = Android;
+                dxLabelSkill2.Text = "技能2";
+                dxLabelSkill2.Outline = true;
+                int ys2 = y12 + 20;
+                dxLabelSkill2.Location = new Point(x7 + 70, ys2);
+                DXComboBox dxComboBoxSkill2 = new DXComboBox();
+                dxComboBoxSkill2.Parent = Android;
+                dxComboBoxSkill2.Size = new Size(120, 18);
+                dxComboBoxSkill2.Location = new Point(x7 + 70 + dxLabelSkill2.Size.Width + 5, ys2);
+                AndroidSkills2 = dxComboBoxSkill2;
+                AndroidSkills2.SelectedItemChanged += ((o, e) =>
+                    Config.挂机自动技能[1] = AndroidSkills2.ListBox.SelectedItem?.Item == null ? MagicType.None : (MagicType)AndroidSkills2.ListBox.SelectedItem.Item);
+
+                DXLabel dxLabelSkill3 = new DXLabel();
+                dxLabelSkill3.Parent = Android;
+                dxLabelSkill3.Text = "技能3";
+                dxLabelSkill3.Outline = true;
+                int ys3 = y12 + 40;
+                dxLabelSkill3.Location = new Point(x7 + 70, ys3);
+                DXComboBox dxComboBoxSkill3 = new DXComboBox();
+                dxComboBoxSkill3.Parent = Android;
+                dxComboBoxSkill3.Size = new Size(120, 18);
+                dxComboBoxSkill3.Location = new Point(x7 + 70 + dxLabelSkill3.Size.Width + 5, ys3);
+                AndroidSkills3 = dxComboBoxSkill3;
+                AndroidSkills3.SelectedItemChanged += ((o, e) =>
+                    Config.挂机自动技能[2] = AndroidSkills3.ListBox.SelectedItem?.Item == null ? MagicType.None : (MagicType)AndroidSkills3.ListBox.SelectedItem.Item);
+
                 DXLabel dxLabel9 = new DXLabel();
                 dxLabel9.Parent = Android;
                 dxLabel9.Text = "X坐标:";
                 dxLabel9.Outline = true;
                 int y13;
-                dxLabel9.Location = new Point(x7, y13 = y12 + 40);
+                dxLabel9.Location = new Point(x7, y13 = y12 + 60);
                 DXLabel dxLabel10 = dxLabel9;
                 DXNumberBox dxNumberBox3 = new DXNumberBox();
                 dxNumberBox3.Parent = Android;
@@ -2850,11 +2882,19 @@ namespace Client.Scenes.Views
 
             public void UpdateMagic()
             {
-                // 为 AndroidSkills 添加"不使用技能"选项
+                // 为 AndroidSkills/Skills2/Skills3 添加"不使用技能"选项
                 DXListBoxItem noSkillItem = new DXListBoxItem();
                 noSkillItem.Parent = AndroidSkills.ListBox;
                 noSkillItem.Label.Text = "不使用技能";
                 noSkillItem.Item = null;
+                DXListBoxItem noSkillItem2 = new DXListBoxItem();
+                noSkillItem2.Parent = AndroidSkills2.ListBox;
+                noSkillItem2.Label.Text = "不使用技能";
+                noSkillItem2.Item = null;
+                DXListBoxItem noSkillItem3 = new DXListBoxItem();
+                noSkillItem3.Parent = AndroidSkills3.ListBox;
+                noSkillItem3.Label.Text = "不使用技能";
+                noSkillItem3.Item = null;
                 
                 foreach (KeyValuePair<MagicInfo, ClientUserMagic> magic in GameScene.Game.User.Magics)
                 { 
@@ -2874,19 +2914,29 @@ namespace Client.Scenes.Views
                     dxListBoxItem3.Parent = AndroidSkills.ListBox;
                     dxListBoxItem3.Label.Text = clientUserMagic.Info.Name;
                     dxListBoxItem3.Item = (object)clientUserMagic.Info.Magic;
+                    DXListBoxItem dxListBoxItem4 = new DXListBoxItem();
+                    dxListBoxItem4.Parent = AndroidSkills2.ListBox;
+                    dxListBoxItem4.Label.Text = clientUserMagic.Info.Name;
+                    dxListBoxItem4.Item = (object)clientUserMagic.Info.Magic;
+                    DXListBoxItem dxListBoxItem5 = new DXListBoxItem();
+                    dxListBoxItem5.Parent = AndroidSkills3.ListBox;
+                    dxListBoxItem5.Label.Text = clientUserMagic.Info.Name;
+                    dxListBoxItem5.Item = (object)clientUserMagic.Info.Magic;
                 }
                 CombSkill1.ListBox.SelectItem((object)Config.自动技能1);
                 CombSkill2.ListBox.SelectItem((object)Config.自动技能2);
                 
                 // 根据"远战挂机是否使用技能"配置选择合适的选项
-                if (!Config.远战挂机是否使用技能 || Config.挂机自动技能 == MagicType.None)
+                if (!Config.远战挂机是否使用技能 || Config.挂机自动技能[0] == MagicType.None)
                 {
                     AndroidSkills.ListBox.SelectItem(null); // 选择"不使用技能"
                 }
                 else
                 {
-                    AndroidSkills.ListBox.SelectItem((object)Config.挂机自动技能);
+                    AndroidSkills.ListBox.SelectItem((object)Config.挂机自动技能[0]);
                 }
+                AndroidSkills2.ListBox.SelectItem(Config.挂机自动技能[1] == MagicType.None ? null : (object)Config.挂机自动技能[1]);
+                AndroidSkills3.ListBox.SelectItem(Config.挂机自动技能[2] == MagicType.None ? null : (object)Config.挂机自动技能[2]);
             }
 
             public override void OnSizeChanged(Size oValue, Size nValue)

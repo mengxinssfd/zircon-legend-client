@@ -164,7 +164,8 @@ namespace Client.Envir
         public static bool 是否远战挂机 { get; set; } = false;
         public static bool 远战挂机是否使用技能 { get; set; } = false;
 
-        public static MagicType 挂机自动技能 { get; set; } = MagicType.None;
+        // ！ 改进：挂机技能支持多个，轮流施放（保存时以逗号分隔）
+        public static MagicType[] 挂机自动技能 { get; set; } = new MagicType[] { MagicType.None, MagicType.None, MagicType.None };
 
         public static Point 范围挂机坐标 { get; set; } = Point.Empty;
 

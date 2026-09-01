@@ -23,6 +23,8 @@ namespace Client.Scenes.Views
         private DateTime PathFinderTime;
         // 增加自动技能间隔检测
         private DateTime _nextAutoSkillTime = DateTime.MinValue;
+        // ！ 改进：多挂机技能轮流施放的索引
+        private static int _autoSkillIndex;
 
         public static UserObject User => GameScene.Game.User;
         public PathFinder PathFinder { get; set; } = null;
@@ -1077,7 +1079,7 @@ namespace Client.Scenes.Views
                 if (targetDistance == 1 && CEnvir.Now > User.AttackTime && User.Horse == HorseType.None)
                 {
                     if (Config.开始挂机 && (flag && User.Class == MirClass.Assassin && Functions.InRange(MapObject.TargetObject.CurrentLocation, User.CurrentLocation, SHORT_DISTANCE_DETECTION_RANGE)))
-                        GameScene.Game.UseMagic(Config.挂机自动技能);
+                        TryAutoSkill();
 
                     MapObject.User.AttemptAction(new ObjectAction(MirAction.Attack, Functions.DirectionFromPoint(MapObject.User.CurrentLocation, MapObject.TargetObject.CurrentLocation), MapObject.User.CurrentLocation, new object[3]
                     {
@@ -2247,7 +2249,7 @@ namespace Client.Scenes.Views
                                 if (!Config.远战挂机是否使用技能 || !Functions.InRange(GameScene.Game.TargetObject.CurrentLocation, User.CurrentLocation, SHORT_DISTANCE_DETECTION_RANGE))
                                     return;
 
-                                GameScene.Game.UseMagic(Config.挂机自动技能);
+                                TryAutoSkill();
                                 return;
                             }
                             mirDirection1 = mirDirection2;
@@ -2295,10 +2297,7 @@ namespace Client.Scenes.Views
 
                     if (Functions.InRange(GameScene.Game.TargetObject.CurrentLocation, User.CurrentLocation, SHORT_DISTANCE_DETECTION_RANGE))
                     {
-                        var autoMagic = GameScene.Game.GetMagic(Config.挂机自动技能);
-                        // string debugMsg = $"[AutoSkill] Config.挂机自动技能={Config.挂机自动技能}, MagicObj={(autoMagic == null ? "null" : ($"Type={autoMagic.Info.Magic}, Name={autoMagic.Info.Name}, Level={autoMagic.Level}"))}";
-                        // GameScene.Game.ReceiveChat(debugMsg, MessageType.Hint);
-                        GameScene.Game.UseMagic(Config.挂机自动技能);
+                        TryAutoSkill();
                         if (Config.是否远战挂机) return;
                     }
                     else if (Config.是否远战挂机) GameScene.Game.TargetObject = null;
@@ -2603,9 +2602,23 @@ namespace Client.Scenes.Views
         /// 挂机技能方法改动
         /// 当且仅当施法列队为空才将技能放入列队，避免打断其他动作
         /// </summary>
+        // ！ 改进：挂机技能支持多个，按顺序轮流施放
+        private List<MagicType> GetAutoSkills()
+        {
+            List<MagicType> list = new List<MagicType>();
+            if (Config.挂机自动技能 != null)
+            {
+                foreach (MagicType skill in Config.挂机自动技能)
+                    if (skill != MagicType.None)
+                        list.Add(skill);
+            }
+            return list;
+        }
+
         private void TryAutoSkill()
         {
-            if (Config.挂机自动技能 == MagicType.None) return;
+            List<MagicType> skills = GetAutoSkills();
+            if (skills.Count == 0) return;
 
             if (CEnvir.Now < _nextAutoSkillTime) return;
 
@@ -2615,8 +2628,10 @@ namespace Client.Scenes.Views
             // 当有技能正在施法返回
             if (MapObject.User.MagicAction != null) return;
 
-            // 只有当前未施法，并且队列为空时，才插入自动技能
-            GameScene.Game.UseMagic(Config.挂机自动技能);
+            // 只有当前未施法，并且队列为空时，才插入自动技能（按顺序轮流）
+            _autoSkillIndex %= skills.Count;
+            GameScene.Game.UseMagic(skills[_autoSkillIndex]);
+            _autoSkillIndex = (_autoSkillIndex + 1) % skills.Count;
 
             // 增加施法延迟，增加容错量（游戏无施法加速默认是500ms，这里给600，100毫秒headroom不影响挂机效率但是增加大量的容错
             _nextAutoSkillTime = CEnvir.Now.AddMilliseconds(600);
