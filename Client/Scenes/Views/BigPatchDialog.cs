@@ -3265,7 +3265,17 @@ namespace Client.Scenes.Views
                 // —— 随机保护（自辅助-挂机组迁入，置于右侧空区；左侧为药品槽） ——
                 int protectRowX = 275;
 
-                ProtectRandom = CreateCheckBox(this, "随机保护", protectRowX, 5, ((o, e) => Config.是否开启随机保护 = ProtectRandom.Checked), Config.是否开启随机保护);
+                // 随机保护设置区域线框
+                new DXControl
+                {
+                    Parent = this,
+                    Location = new Point(270, 5),
+                    Size = new Size(275, 96),
+                    Border = true,
+                    BorderColour = Color.FromArgb(198, 166, 99),
+                };
+
+                ProtectRandom = CreateCheckBox(this, "随机保护", protectRowX, 12, ((o, e) => Config.是否开启随机保护 = ProtectRandom.Checked), Config.是否开启随机保护);
 
                 DXLabel rpHealthLabel = new DXLabel
                 {
@@ -3274,7 +3284,7 @@ namespace Client.Scenes.Views
                     Outline = true,
                     Hint = "百分比值",
                 };
-                rpHealthLabel.Location = new Point(protectRowX, 30);
+                rpHealthLabel.Location = new Point(protectRowX, 34);
 
                 DXNumberBox rpHealthBox = new DXNumberBox();
                 rpHealthBox.Parent = this;
@@ -3285,7 +3295,7 @@ namespace Client.Scenes.Views
                 rpHealthBox.MinValue = 1L;
                 rpHealthBox.Value = Config.血量剩下百分之多少时自动随机;
                 rpHealthBox.UpButton.Location = new Point(63, 1);
-                rpHealthBox.Location = new Point(protectRowX + rpHealthLabel.Size.Width, 30);
+                rpHealthBox.Location = new Point(protectRowX + rpHealthLabel.Size.Width, 34);
                 rpHealthBox.ValueTextBox.ValueChanged += ((o, e) => Config.血量剩下百分之多少时自动随机 = rpHealthBox.Value);
 
                 DXLabel rpCountLabel = new DXLabel
@@ -3295,7 +3305,7 @@ namespace Client.Scenes.Views
                     Outline = true,
                     Hint = "落点范围内怪物达到该数量视为密集，则会再次使用随机，否则会等待5秒回血",
                 };
-                rpCountLabel.Location = new Point(protectRowX, 55);
+                rpCountLabel.Location = new Point(protectRowX, 56);
 
                 DXNumberBox rpCountBox = new DXNumberBox();
                 rpCountBox.Parent = this;
@@ -3306,7 +3316,7 @@ namespace Client.Scenes.Views
                 rpCountBox.MinValue = 1L;
                 rpCountBox.Value = Config.随机保护怪数量;
                 rpCountBox.UpButton.Location = new Point(63, 1);
-                rpCountBox.Location = new Point(protectRowX + rpCountLabel.Size.Width, 55);
+                rpCountBox.Location = new Point(protectRowX + rpCountLabel.Size.Width, 56);
                 rpCountBox.ValueTextBox.ValueChanged += ((o, e) => Config.随机保护怪数量 = rpCountBox.Value);
 
                 DXLabel rpRangeLabel = new DXLabel
@@ -3316,7 +3326,7 @@ namespace Client.Scenes.Views
                     Outline = true,
                     Hint = "落点扫描半径（格）",
                 };
-                rpRangeLabel.Location = new Point(protectRowX, 80);
+                rpRangeLabel.Location = new Point(protectRowX, 78);
 
                 DXNumberBox rpRangeBox = new DXNumberBox();
                 rpRangeBox.Parent = this;
@@ -3327,7 +3337,7 @@ namespace Client.Scenes.Views
                 rpRangeBox.MinValue = 1L;
                 rpRangeBox.Value = Config.随机保护范围;
                 rpRangeBox.UpButton.Location = new Point(63, 1);
-                rpRangeBox.Location = new Point(protectRowX + rpRangeLabel.Size.Width, 80);
+                rpRangeBox.Location = new Point(protectRowX + rpRangeLabel.Size.Width, 78);
                 rpRangeBox.ValueTextBox.ValueChanged += ((o, e) => Config.随机保护范围 = rpRangeBox.Value);
             }
 
