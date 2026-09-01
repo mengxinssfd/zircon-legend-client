@@ -5968,42 +5968,21 @@ namespace Client.Scenes
         }
         private void AutoChangePoison(ClientUserMagic magic)
         {
-            MagicHelper magicHelper = null;
-
-            for (int index = 0; index < Config.magics.Count; ++index)
-            {
-                if (Config.magics[index].TypeID == magic.Info.Magic)
-                {
-                    magicHelper = Config.magics[index];
-                    break;
-                }
-            }
-
-            if (magicHelper == null) return;
-
-            ClientUserItem clientUserItem1 = CharacterBox?.Grid[10]?.Item;
-
-            if (magicHelper.Amulet > 0 && (clientUserItem1?.Info?.Index ?? -1) == magicHelper.Amulet)
-                return;
+            DXItemCell poisonSlot = CharacterBox.Grid[(int)EquipmentSlot.Poison];
+            ClientUserItem equippedItem = poisonSlot.Item;
 
             for (int index = 0; index < Inventory.Length; ++index)
             {
-                ClientUserItem clientUserItem2 = Inventory[index];
-                if (magicHelper.Amulet > 0 && (clientUserItem2?.Info?.Index ?? -1) == magicHelper.Amulet)
+                ClientUserItem item = Inventory[index];
+                if (item == null) continue; 
+                if(item.Info.ItemType == ItemType.Poison && item.Info.Shape != equippedItem?.Info?.Shape)
                 {
-                    CharacterBox.Grid[10].ToEquipment(InventoryBox.Grid.Grid[index]);
-                    return;
-                }
-                else if(magicHelper.Amulet == 0 
-                    && (clientUserItem2?.Info?.ItemType ?? ItemType.Nothing) == ItemType.Poison
-                    && (clientUserItem2?.Info?.Index ?? magicHelper.Amulet) != magicHelper.Amulet)
-                {
-                    CharacterBox.Grid[10].ToEquipment(InventoryBox.Grid.Grid[index]);
+                    poisonSlot.ToEquipment(InventoryBox.Grid.Grid[index]);
                     return;
                 }
             }
-
-            ReceiveChat("你的毒用完了，释放失败", MessageType.Hint);
+            
+            if (poisonSlot.Item == null) ReceiveChat("你的毒用完了，释放失败", MessageType.Hint);
         }
     }
 } 
