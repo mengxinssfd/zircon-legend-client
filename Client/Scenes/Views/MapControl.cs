@@ -1034,13 +1034,14 @@ namespace Client.Scenes.Views
 
                     //if (GameScene.Game.AutoPoison()) return;
 
-                    // ！ 改进：使用"远程技能挂机"配置项替代职业判断
-                    //  if ((User.Class == MirClass.Taoist || User.Class == MirClass.Wizard) && Functions.InRange(MapObject.TargetObject.CurrentLocation, User.CurrentLocation, SHORT_DISTANCE_DETECTION_RANGE))
-                    if (Config.是否远战挂机 && Functions.InRange(MapObject.TargetObject.CurrentLocation, User.CurrentLocation, SHORT_DISTANCE_DETECTION_RANGE))
+                    // ！ 改进：挂机技能不再受"远战挂机"限制，所有职业都能施放技能
+                    // 法系(远战)挂机只使用技能，非法系挂机施法后继续普攻
+                    if (Functions.InRange(MapObject.TargetObject.CurrentLocation, User.CurrentLocation, SHORT_DISTANCE_DETECTION_RANGE))
                     {
                         if (Config.远战挂机是否使用技能)
                             TryAutoSkill();
-                        return;
+                        if (Config.是否远战挂机)
+                            return;
                     }
                 }
 
@@ -2287,7 +2288,9 @@ namespace Client.Scenes.Views
                 // 自动施毒
                 // if (Config.自动上毒) GameScene.Game.AutoPoison();
 
-                if (Config.远战挂机是否使用技能 && Config.是否远战挂机)
+                // ！ 改进：挂机技能不再受"远战挂机"限制，所有职业都能施放技能
+                // 法系(远战)挂机只使用技能，非法系挂机施法后继续普攻
+                if (Config.远战挂机是否使用技能)
                 {
 
                     if (Functions.InRange(GameScene.Game.TargetObject.CurrentLocation, User.CurrentLocation, SHORT_DISTANCE_DETECTION_RANGE))
@@ -2296,10 +2299,9 @@ namespace Client.Scenes.Views
                         // string debugMsg = $"[AutoSkill] Config.挂机自动技能={Config.挂机自动技能}, MagicObj={(autoMagic == null ? "null" : ($"Type={autoMagic.Info.Magic}, Name={autoMagic.Info.Name}, Level={autoMagic.Level}"))}";
                         // GameScene.Game.ReceiveChat(debugMsg, MessageType.Hint);
                         GameScene.Game.UseMagic(Config.挂机自动技能);
-                        return;
+                        if (Config.是否远战挂机) return;
                     }
-
-                    GameScene.Game.TargetObject = null;
+                    else if (Config.是否远战挂机) GameScene.Game.TargetObject = null;
                 }
 
                 if (Functions.Distance(User.CurrentLocation, GameScene.Game.TargetObject.CurrentLocation) == 1 && CEnvir.Now > User.AttackTime && User.Horse == HorseType.None)
