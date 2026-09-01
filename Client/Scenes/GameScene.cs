@@ -5937,7 +5937,7 @@ namespace Client.Scenes
             if (MapObject.TargetObject == null || !Functions.InRange(MapObject.TargetObject.CurrentLocation, User.CurrentLocation, 10)) return false;
 
             var helpper = GetMagicHelpper(MagicType.PoisonDust);
-            var item = Globals.ItemInfoList.Binding.FirstOrDefault(x => x.Index == helpper.Amulet);
+            var item = Globals.ItemInfoList.Binding.FirstOrDefault(x => x.ItemType == ItemType.Poison);
             // Infection
             var infectionMagic = GetMagic(MagicType.Infection);
 
