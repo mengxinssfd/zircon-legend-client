@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
@@ -4287,16 +4287,17 @@ namespace Client.Scenes
                             }
                             goto case MagicType.MassBeckon;
                         case MagicType.DanceOfSwallow:
-                            if (CEnvir.Now < User.ServerTime)
-                                return;
-                            if (CanAttackTarget(MouseObject))
-                                mapObject = MouseObject;
-                            if (mapObject == null)
-                                return;
+                            if (CEnvir.Now < User.ServerTime) return;
+
+                            // 无鼠标指向目标时，自动选择范围内最近的可攻击目标作为突进目标
+                            // AutoRemoteTarget 内部已经判断过 CanAttackTarget
+                            mapObject = AutoRemoteTarget(mapObject, helpper, magic.Info.Magic);
+
+                            if (mapObject == null) return;
+
                             if (!Functions.InRange(mapObject.CurrentLocation, User.CurrentLocation, 10))
                             {
-                                if (CEnvir.Now < OutputTime)
-                                    return;
+                                if (CEnvir.Now < OutputTime) return;
                                 OutputTime = CEnvir.Now.AddSeconds(1.0);
                                 ReceiveChat("不能使用 " + magic.Info.Name + ", 你的攻击目标太远了", MessageType.Hint);
                                 return;
