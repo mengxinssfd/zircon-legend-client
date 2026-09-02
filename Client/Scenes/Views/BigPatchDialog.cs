@@ -2506,6 +2506,8 @@ namespace Client.Scenes.Views
                                 Enabled = AndroidPlayer.Checked,
                                 Slot = AutoSetConf.SetAutoOnHookBox
                             });
+                           // 避免沿用停机期间累积的无经验时长导致挂机开始第一帧就立即随机传送
+                           DXPlayerHelperTab.GainEx();
                         }
                     }
                     else
