@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -869,6 +869,8 @@ namespace Client.Scenes.Views
                 {
                     User.AttemptAction(new ObjectAction(MirAction.Standing, User.Direction, User.CurrentLocation));
                 }
+                // 停止挂机后清除最后锁定的攻击目标，避免继续自动攻击
+                MapObject.TargetObject = null;
             }
             _lastAutoAndroidState = Config.开始挂机; // 记录本帧状态
 
