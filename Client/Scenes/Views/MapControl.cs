@@ -94,19 +94,7 @@ namespace Client.Scenes.Views
         private const double STATE_CHANGE_DELAY = 1.0; // 1秒延迟
         
         // ！ 参数化短距离怪物检测距离
-        private const int SHORT_DISTANCE_DETECTION_RANGE = 9; // 战斗模式的怪物检测范围（格）
-
-        public DateTime ProtectTime
-        {
-            get
-            {
-                return GameScene.Game.BigPatchBox._ProtectTime;
-            }
-            set
-            {
-                GameScene.Game.BigPatchBox._ProtectTime = value;
-            }
-        }
+        private const int SHORT_DISTANCE_DETECTION_RANGE = 9; // 战斗模式的怪物检测距离（格）
 
         #region MapInformation
 
@@ -2085,13 +2073,6 @@ namespace Client.Scenes.Views
                     int maxValue2 = (int)((long)androidCoord.Y + Config.范围距离);
                     y = random2.Next(minValue2, maxValue2);
                     PathFinderTime = CEnvir.Now.AddSeconds(8.0);
-                }
-                else if (Config.是否开启随机保护)
-                {
-                    DXItemCell dxItemCell = (GameScene.Game.InventoryBox.Grid.Grid).FirstOrDefault(X => X?.Item?.Info.ItemName == "随机传送卷");
-                    if (dxItemCell != null && dxItemCell.UseItem())
-                        ProtectTime = CEnvir.Now.AddSeconds(5.0);
-                    return;
                 }
                 else
                 {

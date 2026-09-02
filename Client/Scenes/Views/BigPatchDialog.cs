@@ -33,8 +33,9 @@ namespace Client.Scenes.Views
         public DXAutoOilTab AutoOil;
         public DXAutoPickItemTab AutoPick;
         public DXMagicHelperTab Magic { get; set; }
-        public DateTime _ProtectTime;
-        private DateTime _RandomProtectScanTime;
+        private DateTime _HPRandomTime;
+        // ！ 每间隔随机计时：需为 static，因为开挂机 UI 的 CreateCheckBox lambda 处于静态上下文，会访问该字段
+        private static DateTime _IntervalRandomTime;
         private long _RandomProtectCurrentHP;
         private bool _IsFromRandomProtect;
 
@@ -806,11 +807,11 @@ namespace Client.Scenes.Views
                 // 客户端的CurrentHP与服务端是有延迟的（见服务端MapObject文件的ProcessHPMP方法）
                 if ((double)GameScene.Game.User.CurrentHP < (double)GameScene.Game.User.Stats[Stat.Health] * (double)num)
                 {
-                    if (GameScene.Game.User.CurrentHP != _RandomProtectCurrentHP && !MapObject.User.InSafeZone && CEnvir.Now > _ProtectTime)
+                    if (GameScene.Game.User.CurrentHP != _RandomProtectCurrentHP && !MapObject.User.InSafeZone && CEnvir.Now > _HPRandomTime)
                     {
-                        DXItemCell dxItemCell = GameScene.Game.InventoryBox.Grid.Grid.FirstOrDefault(x => x?.Item?.Info.ItemName == "随机传送卷");
+                        DXItemCell dxItemCell = GameScene.Game.InventoryBox.Grid.Grid.FirstOrDefault(x => x?.Item?.Info.IsRandomTeleportScroll() ?? false);
                         if (dxItemCell != null && dxItemCell.UseItem())
-                            _ProtectTime = CEnvir.Now.AddSeconds(1.0);
+                            _HPRandomTime = CEnvir.Now.AddSeconds(1.0);
                         _IsFromRandomProtect = true;
                     }
                 }
@@ -826,17 +827,16 @@ namespace Client.Scenes.Views
                     _AutoUseBook(GameScene.Game.CompanionBox.InventoryGrid.Grid);
             }
 
-            if (!Config.开始挂机)
-                return;
+            if (!Config.开始挂机) return;
 
             if (GameScene.Game.User.Dead && Config.死亡回城)
                 CEnvir.Enqueue(new TownRevive());
 
-            if (Config.是否开启每间隔自动随机 && CEnvir.Now > _ProtectTime)
+            if (Config.是否开启每间隔自动随机 && CEnvir.Now > _IntervalRandomTime)
             {
-                DXItemCell dxItemCell = GameScene.Game.InventoryBox.Grid.Grid.FirstOrDefault(x => x?.Item?.Info.ItemName == "随机传送卷");
+                DXItemCell dxItemCell = GameScene.Game.InventoryBox.Grid.Grid.FirstOrDefault(x => x?.Item?.Info.IsRandomTeleportScroll() ?? false);
                 if (dxItemCell != null && dxItemCell.UseItem())
-                    _ProtectTime = CEnvir.Now.AddSeconds((double)Config.隔多少秒自动随机一次);
+                    _IntervalRandomTime = CEnvir.Now.AddSeconds((double)Config.隔多少秒自动随机一次);
             }
 
 
@@ -849,7 +849,7 @@ namespace Client.Scenes.Views
         {
             if (!Config.是否开启随机保护 || !_IsFromRandomProtect) return;
             // 如果当前随机落点是安全的，那么等待5秒后再看看血量是否是健康的
-            if (IsSafeTeleportZone()) _ProtectTime = CEnvir.Now.AddSeconds(5.0);
+            if (IsSafeTeleportZone()) _HPRandomTime = CEnvir.Now.AddSeconds(5.0);
         }
 
         // 判定落点是否为安全传送点：正处于地图安全区内，或落点周围怪数量未超过设定值
@@ -2159,7 +2159,6 @@ namespace Client.Scenes.Views
             public decimal totalExperience, totalGold, totalHuntGold, totalExperiencefen, totalGoldfen, totalHuntGoldfen;
             private static DateTime LastTimes = DateTime.Now;
             private static DateTime LastGainEx = DateTime.Now;
-            public DateTime _ProtectTime;
 
 
             public DXPlayerHelperTab()
@@ -2486,11 +2485,9 @@ namespace Client.Scenes.Views
                 dxLabel8.Location = new Point(x8 + width1 - 8, y10);
                 dxLabel8.ForeColour = Color.Cyan;
                 TimeLable = dxLabel8;
-                AndroidPlayer = CreateCheckBox(Android, "开始挂机", x7 + 170, y10, ((o, e) => Config.开始挂机 = AndroidPlayer.Checked), Config.开始挂机);
-                AndroidPlayer.CheckedChanged += ((o, e) =>
+                AndroidPlayer = CreateCheckBox(Android, "开始挂机", x7 + 170, y10, ((o, e) =>
                 {
-                    if (GameScene.Game.Observer)
-                        return;
+                    if (GameScene.Game.Observer) return;
 
                     if (AndroidPlayer.Checked)
                     {
@@ -2506,8 +2503,10 @@ namespace Client.Scenes.Views
                                 Enabled = AndroidPlayer.Checked,
                                 Slot = AutoSetConf.SetAutoOnHookBox
                             });
-                           // 避免沿用停机期间累积的无经验时长导致挂机开始第一帧就立即随机传送
-                           DXPlayerHelperTab.GainEx();
+                            // 避免沿用停机期间累积的无经验时长导致挂机开始第一帧就立即随机传送
+                            DXPlayerHelperTab.GainEx();
+                            // 避免挂机开始第一帧就立即随机传送
+                            _IntervalRandomTime = CEnvir.Now.AddSeconds((double)Config.隔多少秒自动随机一次);
                         }
                     }
                     else
@@ -2519,7 +2518,10 @@ namespace Client.Scenes.Views
                             Slot = AutoSetConf.SetAutoOnHookBox
                         });
                     }
-                });
+
+                    Config.开始挂机 = AndroidPlayer.Checked;
+                }), Config.开始挂机);
+                //AndroidPlayer.CheckedChanged += ();
                 int y11;
                 AndroidPoisonDust = CreateCheckBox(Android, "自动上毒", x7, y11 = y10 + 25, ((o, e) => Config.自动上毒 = AndroidPoisonDust.Checked), Config.自动上毒);
                 AndroidEluded = CreateCheckBox(Android, "自动躲避", x7 + 85, y11, ((o, e) => Config.自动躲避 = AndroidEluded.Checked), Config.自动躲避);
@@ -2668,7 +2670,7 @@ namespace Client.Scenes.Views
                 dxNumberBox8.ValueTextBox.Size = new Size(40, 18);
                 dxNumberBox8.MaxValue = 10000L;
                 dxNumberBox8.MinValue = 5L;
-                dxNumberBox8.Value = Config.隔多少秒自动随机一次;
+                dxNumberBox8.Value = Config.隔多少秒自动随机一次 = Math.Max(dxNumberBox8.MinValue, Config.隔多少秒自动随机一次);
                 dxNumberBox8.UpButton.Location = new Point(63, 1);
                 int num19 = x7;
                 size = dxLabel20.Size;
@@ -2695,7 +2697,7 @@ namespace Client.Scenes.Views
                 dxNumberBox9.ValueTextBox.Size = new Size(40, 18);
                 dxNumberBox9.MaxValue = 10000L;
                 dxNumberBox9.MinValue = 5L;
-                dxNumberBox9.Value = Config.多少秒无经验或者未杀死目标自动随机;
+                dxNumberBox9.Value = Config.多少秒无经验或者未杀死目标自动随机 = Math.Max(dxNumberBox9.MinValue, Config.多少秒无经验或者未杀死目标自动随机);
                 dxNumberBox9.UpButton.Location = new Point(63, 1);
                 int num20 = x7;
                 size = dxLabel22.Size;
@@ -2844,12 +2846,12 @@ namespace Client.Scenes.Views
                     LastGainEx = DateTime.Now.AddSeconds(1);
                     if (skilledCount++ - LastGainExp != 0)
                     {
-                        DXItemCell dxItemCell = ((IEnumerable<DXItemCell>)GameScene.Game.InventoryBox.Grid.Grid).FirstOrDefault(x => x?.Item?.Info.ItemName == "随机传送卷");
+                        DXItemCell dxItemCell = ((IEnumerable<DXItemCell>)GameScene.Game.InventoryBox.Grid.Grid).FirstOrDefault(x => x?.Item?.Info.IsRandomTeleportScroll() ?? false);
                         if (dxItemCell != null && dxItemCell.UseItem())
-                            _ProtectTime = CEnvir.Now.AddSeconds(5.0);
-
-                        LastGainExp = skilledCount++;
-                        LastGainEx = DateTime.Now;
+                        {
+                            LastGainExp = skilledCount++;
+                            LastGainEx = DateTime.Now;
+                        }
                     }
                 }
             }
