@@ -92,6 +92,8 @@ namespace Client.Scenes.Views
         
         private DateTime _lastAutoStateChangeTime = DateTime.MinValue;
         private const double STATE_CHANGE_DELAY = 1.0; // 1秒延迟
+        // ！ 修复：怪物密集区扫描是全图遍历，在长距离移动时需节流，避免每帧全量扫描导致卡顿
+        private static DateTime _denseAreaScanTime = DateTime.MinValue;
         
         // ！ 参数化短距离怪物检测距离
         private const int SHORT_DISTANCE_DETECTION_RANGE = 9; // 战斗模式的怪物检测距离（格）
@@ -1694,8 +1696,8 @@ namespace Client.Scenes.Views
                 var distance = Functions.Distance(newTarget.CurrentLocation, User.CurrentLocation);
                 Point target = Functions.Move(newTarget.CurrentLocation, direction, distance >= 2 ? 2 : 1);
 
-                List<Node> path = GameScene.Game.MapControl.PathFinder.FindPath(MapObject.User.CurrentLocation, target);
-                
+                List<Node> path = GameScene.Game.MapControl.PathFinder.FindPath(MapObject.User.CurrentLocation, target, 4096);
+
                 if (path == null || path.Count == 0 || (double)path.Count > bestDistance)
                     return null;
 
@@ -1777,15 +1779,19 @@ namespace Client.Scenes.Views
                             num1 = num7;
                             minob = clientObjectData;
                         }
-                        if ((User.Class == MirClass.Assassin || (uint)User.Class <= 0U) && Functions.InRange(clientObjectData.Location, User.CurrentLocation, SHORT_DISTANCE_DETECTION_RANGE))
-                        {
-                            List<Node> path = PathFinder.FindPath(User.CurrentLocation, Functions.PointNearTarget(User.CurrentLocation, clientObjectData.Location, 1));
-
-                            if (path != null && num7 + 25 >= path.Count)
-                                nodeList = path;
-                        }
                     }
                 }
+            }
+
+            // ！ 修复：寻路从循环内移出，只对最终选中的最近怪做一次 A*。
+            // 原实现对范围内每只近身候选都递归 FindPath，怪堆下单帧多次 A* 造成 380ms + 大量堆分配（GC 卡顿）。
+            if (minob != null
+                && (User.Class == MirClass.Assassin || (uint)User.Class <= 0U)
+                && Functions.InRange(minob.Location, User.CurrentLocation, SHORT_DISTANCE_DETECTION_RANGE))
+            {
+                List<Node> path = PathFinder.FindPath(User.CurrentLocation, Functions.PointNearTarget(User.CurrentLocation, minob.Location, 1), 4096);
+                if (path != null && num1 + 25 >= path.Count)
+                    nodeList = path;
             }
 
             if (nodeList != null && nodeList.Count > 0)
@@ -2374,9 +2380,10 @@ namespace Client.Scenes.Views
             }
             else
             {
-                // ！ 新增：长距离移动时检查怪物，如果发现怪物则中断寻路切换到战斗模式
-                if (IsLongDistanceMode && Config.开始挂机)
+                // ！ 修复：怪物密集区扫描是全图遍历，节流到1秒一次，避免长距离移动时每帧全量扫描导致卡顿
+                if (IsLongDistanceMode && Config.开始挂机 && CEnvir.Now >= _denseAreaScanTime)
                 {
+                    _denseAreaScanTime = CEnvir.Now.AddSeconds(1.0);
                     Point monsterDenseArea = FindMonsterDenseArea();
                     if (!monsterDenseArea.IsEmpty)
                     {

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -14,6 +14,20 @@ namespace Client.Models
         public Heap(int maxHeapSize)
         {
             items = new T[maxHeapSize];
+        }
+
+        // ！ 修复：清空堆以复用数组，避免每次寻路都分配 MaxSize 大小的数组导致 GC 压力
+        public void Reset()
+        {
+            currentItemCount = 0;
+        }
+
+        public bool Contains(T item)
+        {
+            // ！ 修复：节点 HeapIndex 可能在复用场景下为 -1 或越界，先做边界保护再取值
+            int index = item.HeapIndex;
+            if (index < 0 || index >= currentItemCount) return false;
+            return Equals(items[index], item);
         }
 
         public void Add(T item)
@@ -45,11 +59,6 @@ namespace Client.Models
             {
                 return currentItemCount;
             }
-        }
-
-        public bool Contains(T item)
-        {
-            return Equals(items[item.HeapIndex], item);
         }
 
         private void SortDown(T item)

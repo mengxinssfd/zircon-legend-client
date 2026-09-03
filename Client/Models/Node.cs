@@ -1,4 +1,4 @@
-﻿using Client.Scenes.Views;
+using Client.Scenes.Views;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -15,6 +15,8 @@ namespace Client.Models
         public Node Parent;
         public int GCost;
         public int HCost;
+        // ！ 修复：访问戳，用于跨次寻路安全复用堆/集合时判断本回合是否已重置，避免陈旧成本污染
+        public int VisitStamp;
         private int _heapIndex;
 
         public bool Walkable
