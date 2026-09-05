@@ -2323,14 +2323,16 @@ namespace Client.Scenes.Views
                 AutoCelestial = CreateCheckBox(Taoist, "自动阴阳盾", x1, num6 += 25, ((o, e) => Config.自动阴阳盾 = AutoCelestial.Checked), Config.自动阴阳盾);
                 AutoTaoistSkill = CreateCheckBox(Taoist, "自动连续技能", x1 + 120, num6, ((o, e) => Config.自动道士连续技能 = AutoTaoistSkill.Checked), Config.自动道士连续技能);
                 AutoLifeSteal = CreateCheckBox(Taoist, "自动吸星大法", x1, num6 += 25, ((o, e) => Config.自动吸星大法 = AutoLifeSteal.Checked), Config.自动吸星大法);
-                AutoMagicResistance = CreateCheckBox(Taoist, "自动施放幽灵盾", x1 + 120, num6, ((o, e) => Config.自动施放幽灵盾 = AutoMagicResistance.Checked), Config.自动施放幽灵盾);
+                AutoMagicResistance = CreateCheckBox(Taoist, "自动幽灵盾", x1 + 120, num6, ((o, e) => Config.自动施放幽灵盾 = AutoMagicResistance.Checked), Config.自动施放幽灵盾);
 
-                AutoStrengthOfFaith = CreateCheckBox(Taoist, "有宠物时自动移花接玉", x1, num6 += 25, ((o, e) => Config.有宠物时自动移花接玉 = AutoStrengthOfFaith.Checked), Config.有宠物时自动移花接玉);
-                AutoResilience = CreateCheckBox(Taoist, "自动施放神圣战甲", x1, num6 += 25, ((o, e) => Config.自动施放神圣战甲术 = AutoResilience.Checked), Config.自动施放神圣战甲术);
-                AutoBloodLust = CreateCheckBox(Taoist, "自动给宠物施放猛虎强势", x1, num6 += 25, ((o, e) => Config.自动给宠物施放猛虎强势 = AutoBloodLust.Checked), Config.自动给宠物施放猛虎强势);
-                AutoElementalSuperiority = CreateCheckBox(Taoist, "自动施放强魔震法", x1, num6 += 25, ((o, e) => Config.自动强魔震法 = AutoElementalSuperiority.Checked), Config.自动强魔震法);
-                AutoKeepLife = CreateCheckBox(Taoist, "生命低于一半时自动施展秒影并恢复血量", x1, num6 += 25, ((o, e) => Config.自动施展秒影恢复血量 = AutoKeepLife.Checked), Config.自动施展秒影恢复血量);
-
+                AutoStrengthOfFaith = CreateCheckBox(Taoist, "自动移花接玉", x1, num6 += 25, ((o, e) => Config.有宠物时自动移花接玉 = AutoStrengthOfFaith.Checked), Config.有宠物时自动移花接玉);
+                AutoStrengthOfFaith.Hint = "有宠物时自动移花接玉";
+                AutoResilience = CreateCheckBox(Taoist, "自动神圣战甲", x1, num6 += 25, ((o, e) => Config.自动施放神圣战甲术 = AutoResilience.Checked), Config.自动施放神圣战甲术);
+                AutoBloodLust = CreateCheckBox(Taoist, "自动猛虎强势", x1, num6 += 25, ((o, e) => Config.自动给宠物施放猛虎强势 = AutoBloodLust.Checked), Config.自动给宠物施放猛虎强势);
+                AutoBloodLust.Hint = "自动给宠物施放猛虎强势";
+                AutoElementalSuperiority = CreateCheckBox(Taoist, "自动强魔震法", x1, num6 += 25, ((o, e) => Config.自动强魔震法 = AutoElementalSuperiority.Checked), Config.自动强魔震法);
+                AutoKeepLife = CreateCheckBox(Taoist, "自动秒影/恢复", x1, num6 += 25, ((o, e) => Config.自动施展秒影恢复血量 = AutoKeepLife.Checked), Config.自动施展秒影恢复血量);
+                AutoKeepLife.Hint = "生命低于一半时自动施展秒影并恢复血量";
 
                 int num9 = 5;
                 int num10;
