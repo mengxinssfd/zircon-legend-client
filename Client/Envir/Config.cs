@@ -185,6 +185,11 @@ namespace Client.Envir
 
         public static bool 是否开启每间隔自动随机 { get; set; } = false;
 
+        // 自动召唤（学习后自动施放；各种类限1只、总共最多2只）
+        public static bool 自动召唤骷髅 { get; set; } = false;
+        public static bool 自动召唤神兽 { get; set; } = false;
+        public static bool 自动召唤炎魔 { get; set; } = false;
+
         public static long 多少秒无经验或者未杀死目标自动随机 { get; set; } = 0;
 
         public static bool 是否开启指定时间无经验或者未杀死目标自动随机 { get; set; } = false;

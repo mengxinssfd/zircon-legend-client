@@ -494,6 +494,7 @@ namespace Client.Scenes.Views
 
                 case MirClass.Taoist:
                     AutoHealing();
+                    AutoSummon();
 
                     if (Config.自动阴阳盾 && GameScene.Game.User.Buffs.All(x => x.Type != BuffType.CelestialLight))
                     {
@@ -616,6 +617,61 @@ namespace Client.Scenes.Views
                     break;
             }
         }
+        private static bool HasMagic(MagicType type)
+        {
+            foreach (var pair in MapObject.User.Magics)
+                if (pair.Key.Magic == type)
+                    return true;
+            return false;
+        }
+
+        // ！ 自动召唤：学习后按技能施放；各种类限1只、总共最多2只，达到上限停止
+        private void AutoSummon()
+        {
+            if (!Config.自动召唤骷髅 && !Config.自动召唤神兽 && !Config.自动召唤炎魔) return;
+
+            // 统计场上的召符/宠物：属于自己、存活；排除随从小伙伴
+            int count = 0;
+            bool hasSkeleton = false, hasShinsu = false, hasInfernal = false;
+            foreach (MapObject ob in GameScene.Game.MapControl.Objects)
+            {
+                if (!(ob is MonsterObject mon) || mon.Dead || mon.PetOwner != GameScene.Game.User.Name) continue;
+                if (mon.CompanionObject != null) continue; // 小伙伴不计入召唤数量
+                count++;
+                switch (mon.MonsterInfo.Flag)
+                {
+                    case MonsterFlag.Skeleton:
+                    case MonsterFlag.JinSkeleton:
+                        hasSkeleton = true; break;
+                    case MonsterFlag.Shinsu:
+                        hasShinsu = true; break;
+                    case MonsterFlag.InfernalSoldier:
+                        hasInfernal = true; break;
+                }
+            }
+            if (count >= Globals.MaxSummonPetCount) return; // 达到召唤总数上限
+
+            // 各类别未召出且总数未满则施放对应召唤技能（每次 UpdateAutoAssist 只放一个）
+            if (Config.自动召唤炎魔 && !hasInfernal && HasMagic(MagicType.SummonDemonicCreature))
+            {
+                GameScene.Game.MapControl.MapLocation = MapObject.User.CurrentLocation;
+                GameScene.Game.UseMagic(MagicType.SummonDemonicCreature);
+                return;
+            }
+            if (Config.自动召唤神兽 && !hasShinsu && HasMagic(MagicType.SummonShinsu))
+            {
+                GameScene.Game.MapControl.MapLocation = MapObject.User.CurrentLocation;
+                GameScene.Game.UseMagic(MagicType.SummonShinsu);
+                return;
+            }
+            if (Config.自动召唤骷髅 && !hasSkeleton && HasMagic(MagicType.SummonSkeleton))
+            {
+                GameScene.Game.MapControl.MapLocation = MapObject.User.CurrentLocation;
+                GameScene.Game.UseMagic(MagicType.SummonSkeleton);
+                return;
+            }
+        }
+
         private void AutoHealing()
         {
             //生命值低于一半时施展秒影后持续用群疗或治愈术直至恢复血量
@@ -2113,6 +2169,9 @@ namespace Client.Scenes.Views
             public DXCheckBox AutoElementalSuperiority;
             public DXCheckBox AutoBloodLust;
             public DXCheckBox AutoKeepLife;
+            public DXCheckBox AutoSummonSkeleton;
+            public DXCheckBox AutoSummonShinsu;
+            public DXCheckBox AutoSummonInfernal;
 
 
             public BigPatchDialog.DXGroupBox Assassin;
@@ -2325,6 +2384,11 @@ namespace Client.Scenes.Views
                 AutoLifeSteal = CreateCheckBox(Taoist, "自动吸星大法", x1, num6 += 25, ((o, e) => Config.自动吸星大法 = AutoLifeSteal.Checked), Config.自动吸星大法);
                 AutoMagicResistance = CreateCheckBox(Taoist, "自动幽灵盾", x1 + 120, num6, ((o, e) => Config.自动施放幽灵盾 = AutoMagicResistance.Checked), Config.自动施放幽灵盾);
 
+                AutoSummonSkeleton = CreateCheckBox(Taoist, "自动召唤骷髅", x1 + 120, num6 += 25, ((o, e) => Config.自动召唤骷髅 = AutoSummonSkeleton.Checked), Config.自动召唤骷髅);
+                AutoSummonShinsu = CreateCheckBox(Taoist, "自动召唤神兽", x1 + 120, num6 += 25, ((o, e) => Config.自动召唤神兽 = AutoSummonShinsu.Checked), Config.自动召唤神兽);
+                AutoSummonInfernal = CreateCheckBox(Taoist, "自动召唤炎魔", x1 + 120, num6 += 25, ((o, e) => Config.自动召唤炎魔 = AutoSummonInfernal.Checked), Config.自动召唤炎魔);
+
+                num6 -= (25 * 3);
                 AutoStrengthOfFaith = CreateCheckBox(Taoist, "自动移花接玉", x1, num6 += 25, ((o, e) => Config.有宠物时自动移花接玉 = AutoStrengthOfFaith.Checked), Config.有宠物时自动移花接玉);
                 AutoStrengthOfFaith.Hint = "有宠物时自动移花接玉";
                 AutoResilience = CreateCheckBox(Taoist, "自动神圣战甲", x1, num6 += 25, ((o, e) => Config.自动施放神圣战甲术 = AutoResilience.Checked), Config.自动施放神圣战甲术);
