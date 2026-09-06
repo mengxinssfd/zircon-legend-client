@@ -92,6 +92,10 @@ namespace Client.Scenes.Views
         
         private DateTime _lastAutoStateChangeTime = DateTime.MinValue;
         private const double STATE_CHANGE_DELAY = 1.0; // 1秒延迟
+        // ！ 修复：挂机选怪按“实际寻路距离”比较，节流时间与切换迟滞量
+        private DateTime _autoSelectTime = DateTime.MinValue;   // 按实际路径距离重新评估目标的节流
+        private const double AUTO_SELECT_INTERVAL = 1.0;        // 重新评估选怪间隔（秒）
+        private const int TARGET_SWITCH_MARGIN = 3;             // 实际距离比当前目标少这么多格才切换
         // ！ 修复：怪物密集区扫描是全图遍历，在长距离移动时需节流，避免每帧全量扫描导致卡顿
         private static DateTime _denseAreaScanTime = DateTime.MinValue;
         
@@ -881,61 +885,81 @@ namespace Client.Scenes.Views
             // 新增：自动选怪和寻路逻辑（目测来自国服大补帖 ProcessInput2）
             if (Config.开始挂机)
             {
-                // ！ 新增：检查是否有近身怪物，优先攻击
-                // 这样即使在长距离pathfinding中也能快速响应近身怪物
-                MapObject closestMonster = null;
-                int closestDistance = int.MaxValue;
-                
-                foreach (MapObject obj in Objects)
-                {
-                    if (obj == null || obj.Dead || obj == User) continue;
-                    if (obj.Race != ObjectType.Monster || !string.IsNullOrEmpty(obj.PetOwner)) continue;
-                    
-                    int distance = Functions.Distance(User.CurrentLocation, obj.CurrentLocation);
-                    if (distance < closestDistance)
-                    {
-                        closestDistance = distance;
-                        closestMonster = obj;
-                    }
-                }
-                
-                // 如果发现近身怪物（3格以内），立即停止pathfinding并切换到战斗
-                if (closestMonster != null && closestDistance < 4)
-                {
-                    GameScene.Game.TargetObject = closestMonster;
-                    _shouldClearAutoPath = true; // 标记需要清除pathfinding
-                }
-                // 否则按原逻辑选怪
-                else if (GameScene.Game.TargetObject == null || GameScene.Game.TargetObject.Dead || !Functions.InRange(GameScene.Game.TargetObject.CurrentLocation, MapControl.User.CurrentLocation, SHORT_DISTANCE_DETECTION_RANGE))
-                {
-                    MapObject mapObject = null;
+                // ！ 重构：选怪按“实际寻路距离”比较，并承诺当前目标 + 节流重新评估，
+                //      彻底避免“选远怪→走一半发现更近→再走一半又发现原来更近”的来回踱步。
+                // 承诺：选定一只怪后优先打完/走完，不逐帧按直线距离抢换目标；
+                // 重新评估：仅每 AUTO_SELECT_INTERVAL 秒一次，用 A* 实际行走距离对比，
+                //          只有明显更近(差 TARGET_SWITCH_MARGIN 格)才切换，否则维持承诺。
+                MapObject curTarget = GameScene.Game.TargetObject;
+                bool curBattle = curTarget != null && !curTarget.Dead
+                    && (curTarget.Race == ObjectType.Monster && string.IsNullOrEmpty(curTarget.PetOwner));
 
-                    mapObject = SelectMonster();
+                if (curBattle)
+                {
+                    int needDist = Config.是否远战挂机 ? SHORT_DISTANCE_DETECTION_RANGE : 1;
 
-                    int num;
-                    if (mapObject != null)
+                    // 已进入攻击范围：立即开打（法系施法 / 物理近身攻击）
+                    if (Functions.InRange(curTarget.CurrentLocation, User.CurrentLocation, needDist))
                     {
-                        int objectId1 = (int)mapObject.ObjectID;
-                        uint? objectId2 = GameScene.Game.TargetObject?.ObjectID;
-                        int valueOrDefault = (int)objectId2.GetValueOrDefault();
-                        num = !(objectId1 == valueOrDefault & objectId2.HasValue) ? 1 : 0;
+                        if (AutoPath) { AutoPath = false; CurrentPath = null; }
+                        AndroidProcess();
                     }
-                    else
-                        num = 0;
-                    if (num != 0)
-                        GameScene.Game.TargetObject = mapObject;
-                    else
+                    else if (CEnvir.Now >= _autoSelectTime)
                     {
-                        // ！ 改进：仅在1秒延迟后再执行下一次寻路计算，减少消耗
-                        if (CEnvir.Now >= _lastAutoStateChangeTime.AddSeconds(STATE_CHANGE_DELAY))
+                        _autoSelectTime = CEnvir.Now.AddSeconds(AUTO_SELECT_INTERVAL);
+
+                        int curCost = PathDistanceToEngage(curTarget);
+                        if (curCost == int.MaxValue)
                         {
-                            ChangeAutoFightLocation();
-                            _lastAutoStateChangeTime = CEnvir.Now;
+                            // 目标困死/超长绕行：无法到达 → 丢弃，交由下方全图 SelectMonster 兜底
+                            GameScene.Game.TargetObject = null;
                         }
+                        else if (!NavigateToTargetRange(curTarget))
+                        {
+                            GameScene.Game.TargetObject = null;
+                        }
+                        else
+                        {
+                            // 不变更承诺的前提下，按实际行走距离取视野内最近可达怪
+                            MapObject better = SelectVisibleMonster();
+                            if (better != null && better != curTarget)
+                            {
+                                int betterCost = PathDistanceToEngage(better);
+                                // 只有实际距离明显更近才切换，避免在两个相近的怪间反复横跳
+                                if (betterCost != int.MaxValue && betterCost + TARGET_SWITCH_MARGIN < curCost)
+                                {
+                                    if (AutoPath) { AutoPath = false; CurrentPath = null; }
+                                    GameScene.Game.TargetObject = better;
+                                }
+                            }
+                        }
+                    }
+                    else if (!AutoPath)
+                    {
+                        // 节流期内保持承诺：仅确保仍在朝当前目标走
+                        if (!NavigateToTargetRange(curTarget))
+                            GameScene.Game.TargetObject = null;
                     }
                 }
                 else
-                    AndroidProcess();
+                {
+                    // 无有效目标：分层选怪（视野可见优先，无则全图）
+                    MapObject chosen = SelectVisibleMonster();
+                    if (chosen == null) chosen = SelectMonster();
+
+                    if (chosen != null)
+                    {
+                        GameScene.Game.TargetObject = chosen;
+                        if (!NavigateToTargetRange(chosen))
+                            GameScene.Game.TargetObject = null;
+                    }
+                    else if (CEnvir.Now >= _lastAutoStateChangeTime.AddSeconds(STATE_CHANGE_DELAY))
+                    {
+                        // 仍无目标：长距离找怪迁移
+                        ChangeAutoFightLocation();
+                        _lastAutoStateChangeTime = CEnvir.Now;
+                    }
+                }
             }
             
             if (MapObject.TargetObject != null && !MapObject.TargetObject.Dead && ((MapObject.TargetObject.Race == ObjectType.Monster && string.IsNullOrEmpty(MapObject.TargetObject.PetOwner)) || (CEnvir.Shift || Config.免SHIFT)))
@@ -1711,7 +1735,6 @@ namespace Client.Scenes.Views
         {
             int num1 = 100;
             ClientObjectData minob = null;
-            List<Node> nodeList = null;
             foreach (ClientObjectData clientObjectData in GameScene.Game.DataDictionary.Values)
             {
                 int mapIndex = clientObjectData.MapIndex;
@@ -1785,18 +1808,29 @@ namespace Client.Scenes.Views
 
             // ！ 修复：寻路从循环内移出，只对最终选中的最近怪做一次 A*。
             // 原实现对范围内每只近身候选都递归 FindPath，怪堆下单帧多次 A* 造成 380ms + 大量堆分配（GC 卡顿）。
-            if (minob != null
-                && (User.Class == MirClass.Assassin || (uint)User.Class <= 0U)
-                && Functions.InRange(minob.Location, User.CurrentLocation, SHORT_DISTANCE_DETECTION_RANGE))
+            // ！ 修复 2（重构）：不再限制 SHORT(9) 范围，对任意距离的最近怪都校验可达；
+            // 若最近怪被障碍完全封锁，改选"全图次近可达"的红点怪，而不是直接放弃导致迁移到更远处。
+            if (minob == null)
+                return null;
+
+            bool minDirect = CanMove(Functions.DirectionFromPoint(User.CurrentLocation, minob.Location), 1);
+            List<Node> minPath = null;
+            if (!minDirect)
             {
-                List<Node> path = PathFinder.FindPath(User.CurrentLocation, Functions.PointNearTarget(User.CurrentLocation, minob.Location, 1), 4096);
-                if (path != null && num1 + 25 >= path.Count)
-                    nodeList = path;
+                minPath = PathFinder.FindPath(User.CurrentLocation, Functions.PointNearTarget(User.CurrentLocation, minob.Location, 1), 4096);
+                if (minPath == null || minPath.Count == 0 || num1 + 25 < minPath.Count)
+                    minPath = null;
             }
 
-            if (nodeList != null && nodeList.Count > 0)
+            if (!minDirect && minPath == null)
             {
-                CurrentPath = nodeList;
+                // 最近怪不可达：选全图内次近可达的红点怪，避免直接迁移到更远处
+                return SelectNextReachable(minob);
+            }
+
+            if (minPath != null)
+            {
+                CurrentPath = minPath;
                 AutoPath = true;
             }
 
@@ -1808,6 +1842,148 @@ namespace Client.Scenes.Views
                 return objectId1 == valueOrDefault & objectId2.HasValue;
             }));
         }
+
+        // ！ 重构：全图内选"次近可达"的红点怪（供最近怪不可达时兜底）
+        // 优先打离得近且打得到的红点，避免一遇不可达就长距离迁移。
+        private MapObject SelectNextReachable(ClientObjectData exclude)
+        {
+            int mapIdx = GameScene.Game.MapControl?.MapInfo?.Index ?? -1;
+            ClientObjectData best = null;
+            int bestDist = int.MaxValue;
+
+            foreach (ClientObjectData c in GameScene.Game.DataDictionary.Values)
+            {
+                if (c.MapIndex != mapIdx) continue;
+                if (c.ItemInfo != null || c.MonsterInfo == null) continue;
+                if (c.Dead) continue;
+                if (!string.IsNullOrEmpty(c.PetOwner)) continue;
+                if (c == exclude) continue;
+                if (!InsideAutoRange(c.Location)) continue;
+
+                int d = Functions.Distance(GameScene.Game.User.CurrentLocation, c.Location);
+                if (d >= bestDist) continue;
+
+                if (CanMove(Functions.DirectionFromPoint(GameScene.Game.User.CurrentLocation, c.Location), 1))
+                {
+                    best = c;
+                    bestDist = d;
+                }
+                else
+                {
+                    List<Node> p = PathFinder.FindPath(GameScene.Game.User.CurrentLocation,
+                        Functions.PointNearTarget(GameScene.Game.User.CurrentLocation, c.Location, 1), 4096);
+                    if (p != null && p.Count > 0 && d + 25 >= p.Count)
+                    {
+                        best = c;
+                        bestDist = d;
+                    }
+                }
+            }
+
+            if (best == null) return null;
+
+            return Objects.FirstOrDefault<MapObject>((Func<MapObject, bool>)(x =>
+            {
+                int objectId1 = (int)x.ObjectID;
+                uint? objectId2 = best?.ObjectID;
+                int valueOrDefault = (int)objectId2.GetValueOrDefault();
+                return objectId1 == valueOrDefault & objectId2.HasValue;
+            }));
+        }
+
+        // ！ 重构：范围挂机时判断点是否在设定范围内（未开启范围挂机则恒真）
+        private bool InsideAutoRange(Point loc)
+        {
+            if (!Config.范围挂机) return true;
+            long r = Config.范围距离;
+            return loc.X >= Config.范围挂机坐标.X - r && loc.X <= Config.范围挂机坐标.X + r && loc.Y >= Config.范围挂机坐标.Y - r && loc.Y <= Config.范围挂机坐标.Y + r;
+        }
+
+        // ！ 重构：选怪第一层——只从“地图上会显示（渲染到屏幕）的怪”里，挑“实际行走距离最近”的可达怪
+        // 优先打屏幕上的怪；按 A* 实际路径长度比较（而非直线距离），避免在半路反复横跳。
+        public MapObject SelectVisibleMonster()
+        {
+            MapObject best = null;
+            int bestCost = int.MaxValue;
+
+            // ！ 修复：只在地图上“会显示（渲染到屏幕）的怪”里选，而不是遍历全图所有怪物。
+            // Objects 里包含当前地图的全部对象，但只有落在视图矩形（与 DrawObjects 相同口径）内的才会被画出。
+            int minX = Math.Max(0, User.CurrentLocation.X - OffSetX - 4), maxX = Math.Min(Width - 1, User.CurrentLocation.X + OffSetX + 4);
+            int minY = Math.Max(0, User.CurrentLocation.Y - OffSetY - 4), maxY = Math.Min(Height - 1, User.CurrentLocation.Y + OffSetY + 25);
+
+            foreach (MapObject obj in Objects)
+            {
+                if (obj == null || obj.Dead || obj == User) continue;
+                if (obj.Race != ObjectType.Monster || !string.IsNullOrEmpty(obj.PetOwner)) continue;
+                if (!CanAttackAction(obj)) continue;
+                // 只考虑当前会显示在屏幕上的怪
+                if (obj.CurrentLocation.X < minX || obj.CurrentLocation.X > maxX || obj.CurrentLocation.Y < minY || obj.CurrentLocation.Y > maxY) continue;
+
+                int cost = PathDistanceToEngage(obj);
+                if (cost < bestCost)
+                {
+                    bestCost = cost;
+                    best = obj;
+                }
+            }
+
+            return best;
+        }
+
+        // ！ 新增：到“可交手点”的实际行走距离（A* 路径长度）。
+        // 物理 = 目标旁1格；远战 = 进入施法范围(SHORT)的落点格。
+        // 直线可达返回直线距离；被墙/拐角阻挡则返回 A* 绕行长度；
+        // 不可达或绕行远超直线距离（近乎困死）视为 int.MaxValue，调用方据此跳过。
+        private int PathDistanceToEngage(MapObject obj)
+        {
+            int straight = Functions.Distance(User.CurrentLocation, obj.CurrentLocation);
+
+            // 直线可达：无需绕行，代价 ≈ 直线距离
+            if (CanMove(Functions.DirectionFromPoint(User.CurrentLocation, obj.CurrentLocation), 1))
+                return straight;
+
+            int needDist = Config.是否远战挂机 ? SHORT_DISTANCE_DETECTION_RANGE : 1;
+            Point dest = Functions.PointNearTarget(User.CurrentLocation, obj.CurrentLocation, needDist);
+            List<Node> p = PathFinder.FindPath(User.CurrentLocation, dest, 4096);
+            if (p == null || p.Count == 0) return int.MaxValue;
+            if (straight + 25 < p.Count) return int.MaxValue; // 超长绕行（近乎困死）→ 视为不可达
+            return p.Count;
+        }
+
+        // ！ 重构：统一"移动到位"引导
+        // 物理系走到目标旁1格；法系(远战)走近到可施法范围(SHORT)，已在范围则直接可攻击(返回true)。
+        private bool NavigateToTargetRange(MapObject target)
+        {
+            if (target == null || target.Dead) return false;
+            if (AutoPath) return true; // 已在寻路移动中
+
+            int needDist = Config.是否远战挂机 ? SHORT_DISTANCE_DETECTION_RANGE : 1;
+            if (Functions.InRange(target.CurrentLocation, User.CurrentLocation, needDist))
+                return true; // 已到位，由上层走攻击分支
+
+            // 落点：法系停在离目标 SHORT 格的施法位（不回贴），物理落在目标旁1格
+            Point dest = Config.是否远战挂机
+                ? Functions.PointNearTarget(User.CurrentLocation, target.CurrentLocation, SHORT_DISTANCE_DETECTION_RANGE)
+                : Functions.PointNearTarget(User.CurrentLocation, target.CurrentLocation, 1);
+
+            List<Node> path = PathFinder.FindPath(User.CurrentLocation, dest, 65536);
+            if ((path == null || path.Count == 0) && Config.是否远战挂机)
+                path = PathFinder.FindPath(User.CurrentLocation, target.CurrentLocation, 65536); // 法系回退到目标本体
+
+            // ！ 修复：绕行长度远超直线距离（近乎困死/需超长绕行）时视为不可达，
+            // 交由上层丢弃目标重新选怪，避免人物来回踱步。
+            int straight = Functions.Distance(User.CurrentLocation, target.CurrentLocation);
+            if (path != null && path.Count > 0 && straight + 25 >= path.Count)
+            {
+                CurrentPath = path;
+                AutoPath = true;
+                _shouldClearAutoPath = false;
+                return true;
+            }
+
+            return false; // 不可达，由上层丢弃目标后重新选怪
+        }
+
         public static bool CanAttackAction(MapObject target)
         {
             return target != null && !target.Dead && (target.Race == ObjectType.Monster && string.IsNullOrEmpty(target.PetOwner) || (CEnvir.Shift || Config.免SHIFT));
@@ -2024,8 +2200,10 @@ namespace Client.Scenes.Views
             if (!Config.开始挂机)
                 return;
             
-            // 检查是否还在寻路中或没有到达下一次计算时间
-            if (PathFinderTime >= CEnvir.Now || AutoPath)
+            // ！ 修复：当人物站立且没有 AutoPath 时（打完怪、近距离无目标），
+            // 不再受 PathFinderTime 节流限制而发呆，立即重算找怪/移动；
+            // 节流只约束“正在 AutoPath 寻路移动中”的重复计算。
+            if (AutoPath && CEnvir.Now < PathFinderTime)
                 return;
 
             int x = User.CurrentLocation.X;
