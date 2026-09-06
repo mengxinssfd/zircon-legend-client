@@ -943,21 +943,35 @@ namespace Client.Scenes.Views
                 }
                 else
                 {
-                    // 无有效目标：分层选怪（视野可见优先，无则全图）
-                    MapObject chosen = SelectVisibleMonster();
-                    if (chosen == null) chosen = SelectMonster();
-
-                    if (chosen != null)
+                    // 无有效目标：
+                    // 1) 先做【廉价即时】响应：屏幕内、直线可达、已在攻击范围的怪 → 立即锁定开打（无 A*，逐帧安全）。
+                    MapObject immediate = SelectImmediateTarget();
+                    if (immediate != null)
                     {
-                        GameScene.Game.TargetObject = chosen;
-                        if (!NavigateToTargetRange(chosen))
-                            GameScene.Game.TargetObject = null;
+                        if (AutoPath) { AutoPath = false; CurrentPath = null; }
+                        GameScene.Game.TargetObject = immediate;
                     }
-                    else if (CEnvir.Now >= _lastAutoStateChangeTime.AddSeconds(STATE_CHANGE_DELAY))
+                    else if (CEnvir.Now >= _autoSelectTime)
                     {
-                        // 仍无目标：长距离找怪迁移
-                        ChangeAutoFightLocation();
-                        _lastAutoStateChangeTime = CEnvir.Now;
+                        // 2) 节流：才做【A* 选怪】——屏幕可见优先，无则全图。
+                        //    避免每帧对屏幕内多只隔墙怪反复 A* 寻路导致卡顿。
+                        _autoSelectTime = CEnvir.Now.AddSeconds(AUTO_SELECT_INTERVAL);
+
+                        MapObject chosen = SelectVisibleMonster();
+                        if (chosen == null) chosen = SelectMonster();
+
+                        if (chosen != null)
+                        {
+                            GameScene.Game.TargetObject = chosen;
+                            if (!NavigateToTargetRange(chosen))
+                                GameScene.Game.TargetObject = null;
+                        }
+                        else if (CEnvir.Now >= _lastAutoStateChangeTime.AddSeconds(STATE_CHANGE_DELAY))
+                        {
+                            // 仍无目标：长距离找怪迁移
+                            ChangeAutoFightLocation();
+                            _lastAutoStateChangeTime = CEnvir.Now;
+                        }
                     }
                 }
             }
@@ -1925,6 +1939,39 @@ namespace Client.Scenes.Views
                     bestCost = cost;
                     best = obj;
                 }
+            }
+
+            return best;
+        }
+
+        // ！ 新增：【廉价即时】选怪——屏幕内、直线可达、且已在攻击范围内(物理身边1格/远战施法范围)的怪。
+        // 只做直线可移动性判断(CanMove，无 A*、无堆分配)，可安全每帧调用；
+        // 避免“站在怪旁边却要先经 A* 选怪”造成的卡顿。找不到也不用逐帧做昂贵选怪。
+        private MapObject SelectImmediateTarget()
+        {
+            MapObject best = null;
+            int bestDist = int.MaxValue;
+            int needDist = Config.是否远战挂机 ? SHORT_DISTANCE_DETECTION_RANGE : 1;
+
+            // 只关注会显示在屏幕上的怪
+            int minX = Math.Max(0, User.CurrentLocation.X - OffSetX - 4), maxX = Math.Min(Width - 1, User.CurrentLocation.X + OffSetX + 4);
+            int minY = Math.Max(0, User.CurrentLocation.Y - OffSetY - 4), maxY = Math.Min(Height - 1, User.CurrentLocation.Y + OffSetY + 25);
+
+            foreach (MapObject obj in Objects)
+            {
+                if (obj == null || obj.Dead || obj == User) continue;
+                if (obj.Race != ObjectType.Monster || !string.IsNullOrEmpty(obj.PetOwner)) continue;
+                if (!CanAttackAction(obj)) continue;
+                if (obj.CurrentLocation.X < minX || obj.CurrentLocation.X > maxX || obj.CurrentLocation.Y < minY || obj.CurrentLocation.Y > maxY) continue;
+
+                // 先按距离粗筛，已超出出手范围就跳过（避免对远怪做 CanMove）
+                int d = Functions.Distance(User.CurrentLocation, obj.CurrentLocation);
+                if (d > needDist || d >= bestDist) continue;
+                // 真正能立刻够到（直线可达）
+                if (!CanMove(Functions.DirectionFromPoint(User.CurrentLocation, obj.CurrentLocation), 1)) continue;
+
+                best = obj;
+                bestDist = d;
             }
 
             return best;
